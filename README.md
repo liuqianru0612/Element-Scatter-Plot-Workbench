@@ -1,42 +1,45 @@
-# 公开版元素散点图工作台
+# Element Scatter Plot Workbench
 
-这是纯前端版本，适合部署成公开网址。用户打开网页后自行上传 Excel，数据只在浏览器中解析和作图，不会上传到服务器。
+一个用于元素地球化学数据的在线散点图工具。打开网页后上传 Excel 表格，即可选择 X 轴和 Y 轴生成按 `Type` 分组的散点图。
 
-## 本地预览
+## 在线使用
 
-当前本地预览地址：
+访问网页后：
 
-```text
-http://127.0.0.1:8503
-```
+1. 点击 **Excel 文件** 上传 `.xlsx`、`.xls`、`.xlsm` 或 `.csv` 文件。
+2. 选择要读取的工作表。
+3. 选择 X 轴和 Y 轴列名。
+4. 根据需要筛选 `Type`、设置 log 坐标或手动坐标范围。
+5. 可新增简单比值列，例如 `Zr_Nb = Zr_ppm / Nb_ppm`。
+6. 点击 **导出当前图为 SVG** 保存图件。
 
-## 部署方式
+## 数据隐私
 
-把本目录中的 `index.html` 上传到任意静态网页托管服务即可，例如：
+本工具在浏览器中直接读取和处理表格数据。上传的文件不会被发送到服务器，也不会被保存到网站后台。
 
-- GitHub Pages
-- Netlify
-- Vercel
-- Cloudflare Pages
+## 数据格式建议
 
-## 依赖
+表格中建议包含：
 
-页面通过 CDN 加载 SheetJS：
+- `Type`：用于分组和图例样式
+- `Parent_Sample_ID` 或 `Record_ID`：用于鼠标悬停显示样品信息
+- 数值列：例如 `Mg#`、`TiO2_wt%`、`Sc_ppm`、`Lu_ppm`
 
-```html
-https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
-```
-
-因此公开部署后，访问者需要能访问该 CDN。若希望完全离线部署，可以把 `xlsx.full.min.js` 下载到同目录并把脚本地址改成本地文件。
+如果没有 `Type` 列，工具仍可读取数值列，但分组样式和筛选功能会受限。
 
 ## 当前功能
 
-- 上传 `.xlsx/.xls/.xlsm/.csv`
+- 上传 Excel 或 CSV
 - 选择工作表
 - 选择 X/Y 轴
-- 按 `Type` 分组和样式化散点
-- Type 筛选
-- log 坐标
-- 手动坐标范围
+- 按 `Type` 分组显示散点
+- 筛选显示的 `Type`
+- 设置 X/Y 轴标题
+- 开启 log 坐标
+- 手动设置坐标轴范围
 - 新增简单比值列
-- 导出当前图为 SVG
+- 导出 SVG 图件
+
+## 浏览器要求
+
+建议使用最新版 Chrome、Edge、Firefox 或 Safari。
