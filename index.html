@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>公开版元素散点图工作台</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #64748b;
+        --line: #d8dde5;
+        --accent: #1f766e;
+        --accent-2: #345995;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+        font-size: 14px;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 330px minmax(0, 1fr);
+      }
+
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 18px;
+        overflow-y: auto;
+      }
+
+      main {
+        padding: 18px;
+        min-width: 0;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+      }
+
+      h2 {
+        margin: 20px 0 10px;
+        font-size: 14px;
+      }
+
+      .source,
+      .hint,
+      .stats {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      label {
+        display: block;
+        margin: 12px 0 6px;
+        font-weight: 650;
+      }
+
+      select,
+      input,
+      button {
+        width: 100%;
+        min-height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--text);
+        padding: 6px 8px;
+        font: inherit;
+      }
+
+      input[type="checkbox"] {
+        width: 16px;
+        min-height: 16px;
+        margin: 0 6px 0 0;
+        vertical-align: -2px;
+      }
+
+      button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        border-color: var(--accent-2);
+        background: var(--accent-2);
+      }
+
+      button:disabled,
+      select:disabled,
+      input:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .type-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .type-item {
+        display: grid;
+        grid-template-columns: 18px 16px minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+      }
+
+      .swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px #aab2bd;
+      }
+
+      .chart-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        min-height: calc(100vh - 36px);
+        display: grid;
+        grid-template-rows: auto minmax(480px, 1fr) auto;
+        gap: 10px;
+      }
+
+      .chart-title {
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      svg {
+        width: 100%;
+        height: 100%;
+        min-height: 480px;
+        display: block;
+        background: #fff;
+      }
+
+      .axis {
+        stroke: #000;
+        stroke-width: 1.4;
+      }
+
+      .tick {
+        stroke: #000;
+        stroke-width: 1.1;
+      }
+
+      .tick-label {
+        fill: #2f3742;
+        font-size: 20px;
+      }
+
+      .axis-label {
+        fill: #2f3742;
+        font-size: 32px;
+        font-weight: 700;
+      }
+
+      .legend-text {
+        fill: #2f3742;
+        font-size: 18px;
+      }
+
+      .pill-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .pill {
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        border-radius: 999px;
+        padding: 4px 8px;
+        color: #334155;
+        font-size: 12px;
+      }
+
+      .error {
+        color: #b42318;
+        background: #fff1f0;
+        border: 1px solid #f7c7c2;
+        border-radius: 6px;
+        padding: 8px;
+        margin-top: 10px;
+      }
+
+      #tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: rgba(17, 24, 39, 0.94);
+        color: #fff;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+        display: none;
+        z-index: 5;
+        max-width: 260px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside>
+        <h1>公开版元素散点图工作台</h1>
+        <div class="source">上传 Excel 后在浏览器中作图。数据不会上传到服务器。</div>
+
+        <h2>来源文件</h2>
+        <label for="fileInput">Excel 文件</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.csv" />
+        <label for="sheetSelect">工作表</label>
+        <select id="sheetSelect" disabled></select>
+        <button id="loadSheet" type="button" disabled>加载工作表</button>
+        <div id="sourceInfo" class="hint">等待上传文件。</div>
+
+        <h2>作图</h2>
+        <label for="xSelect">X 轴</label>
+        <select id="xSelect" disabled></select>
+        <label for="ySelect">Y 轴</label>
+        <select id="ySelect" disabled></select>
+        <label for="xTitle">X 轴标题</label>
+        <input id="xTitle" placeholder="留空则使用列名" disabled />
+        <label for="yTitle">Y 轴标题</label>
+        <input id="yTitle" placeholder="留空则使用列名" disabled />
+        <div class="row">
+          <label><input id="logX" type="checkbox" disabled /> X log</label>
+          <label><input id="logY" type="checkbox" disabled /> Y log</label>
+        </div>
+        <div class="row">
+          <label><input id="showLegend" type="checkbox" checked disabled /> 图例</label>
+          <label><input id="autoRange" type="checkbox" checked disabled /> 自动范围</label>
+        </div>
+        <div class="row">
+          <div>
+            <label for="xMin">X 最小值</label>
+            <input id="xMin" type="number" step="any" disabled />
+          </div>
+          <div>
+            <label for="xMax">X 最大值</label>
+            <input id="xMax" type="number" step="any" disabled />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="yMin">Y 最小值</label>
+            <input id="yMin" type="number" step="any" disabled />
+          </div>
+          <div>
+            <label for="yMax">Y 最大值</label>
+            <input id="yMax" type="number" step="any" disabled />
+          </div>
+        </div>
+
+        <h2>Type 筛选</h2>
+        <button id="selectAll" class="secondary" type="button" disabled>全选 / 全不选</button>
+        <div id="typeList" class="type-list"></div>
+
+        <h2>新增比值列</h2>
+        <label for="newName">新列名</label>
+        <input id="newName" placeholder="例如 Zr_Nb_new" disabled />
+        <div class="row">
+          <div>
+            <label for="numSelect">分子</label>
+            <select id="numSelect" disabled></select>
+          </div>
+          <div>
+            <label for="denSelect">分母</label>
+            <select id="denSelect" disabled></select>
+          </div>
+        </div>
+        <button id="addRatio" type="button" disabled>生成比值列</button>
+        <div id="derivedList" class="pill-list"></div>
+
+        <h2>导出</h2>
+        <button id="downloadSvg" class="secondary" type="button" disabled>导出当前图为 SVG</button>
+        <div id="message"></div>
+      </aside>
+
+      <main>
+        <section class="chart-card">
+          <div>
+            <div id="chartTitle" class="chart-title">等待上传 Excel</div>
+            <div id="stats" class="stats">选择文件后开始。</div>
+          </div>
+          <svg id="chart" role="img" aria-label="scatter chart"></svg>
+          <div class="hint">公开版为纯前端页面，适合部署到 GitHub Pages、Netlify、Vercel 等静态托管服务。</div>
+        </section>
+      </main>
+    </div>
+    <div id="tooltip"></div>
+
+    <script>
+      const styles = {
+        "Apollo High-Ti": { color: "#F28E2B", border: "#FFFFFF", marker: "circle" },
+        "Apollo High-Ti-K": { color: "#F28E2B", border: "#99FF33", marker: "circle" },
+        "Apollo Low-Ti": { color: "#59A14F", border: "#FFFFFF", marker: "circle" },
+        "Apollo Very low-Ti": { color: "#59A14F", border: "#D62728", marker: "circle" },
+        "CE-5": { color: "#4E79A7", border: "#FFFFFF", marker: "square" },
+        "CE-6 Low-Ti": { color: "#9C6ADE", border: "#FFFFFF", marker: "diamond" },
+        "CE-6 Very low-Ti": { color: "#9C6ADE", border: "#D62728", marker: "diamond" },
+        "Met Low-Ti": { color: "#1F4E79", border: "#FFFFFF", marker: "triangle" },
+        "Met Very low-Ti": { color: "#1F4E79", border: "#D62728", marker: "triangle" },
+        "Apollo KREEP": { color: "#F2C94C", border: "#FFFFFF", marker: "circle" },
+        "Apollo 16": { color: "#A6A6A6", border: "#FFFFFF", marker: "circle" },
+        "Apollo 14": { color: "#8FA3B8", border: "#FFFFFF", marker: "circle" },
+      };
+
+      let state = {
+        workbook: null,
+        fileName: "",
+        rows: [],
+        columns: [],
+        numericColumns: [],
+        types: [],
+        selectedTypes: new Set(),
+        derivedColumns: [],
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const controls = ["xSelect", "ySelect", "xTitle", "yTitle", "logX", "logY", "showLegend", "autoRange", "xMin", "xMax", "yMin", "yMax", "selectAll", "newName", "numSelect", "denSelect", "addRatio", "downloadSvg"];
+
+      function setControlsEnabled(enabled) {
+        for (const id of controls) $(id).disabled = !enabled;
+      }
+
+      function isFiniteNumber(value) {
+        return typeof value === "number" && Number.isFinite(value);
+      }
+
+      function coerceCell(value) {
+        if (value === null || value === undefined || value === "") return null;
+        if (typeof value === "number") return Number.isFinite(value) ? value : null;
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) && String(value).trim() !== "" ? numberValue : value;
+      }
+
+      function optionList(select, values, selected) {
+        select.innerHTML = "";
+        for (const value of values) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value;
+          if (value === selected) option.selected = true;
+          select.appendChild(option);
+        }
+      }
+
+      function preferredColumn(candidates, fallbackIndex = 0) {
+        for (const name of candidates) if (state.numericColumns.includes(name)) return name;
+        return state.numericColumns[fallbackIndex] || "";
+      }
+
+      function parseWorkbookSheet(sheetName) {
+        const sheet = state.workbook.Sheets[sheetName];
+        const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+        const rows = rawRows.map((row) => {
+          const next = {};
+          for (const [key, value] of Object.entries(row)) next[String(key)] = coerceCell(value);
+          return next;
+        });
+        const columns = rows.length ? Object.keys(rows[0]) : [];
+        const numericColumns = columns.filter((col) => rows.some((row) => isFiniteNumber(row[col])));
+        const types = [];
+        if (columns.includes("Type")) {
+          for (const row of rows) {
+            const type = row.Type == null ? "" : String(row.Type);
+            if (type && !types.includes(type)) types.push(type);
+          }
+        }
+        state.rows = rows;
+        state.columns = columns;
+        state.numericColumns = numericColumns;
+        state.types = types;
+        state.selectedTypes = new Set(types);
+        state.derivedColumns = [];
+        $("derivedList").innerHTML = "";
+        $("sourceInfo").textContent = `${state.fileName}; ${sheetName}; ${rows.length} 行，${columns.length} 列`;
+        populateControls();
+        setControlsEnabled(Boolean(rows.length && numericColumns.length));
+        render();
+      }
+
+      function populateControls() {
+        optionList($("xSelect"), state.numericColumns, preferredColumn(["Mg#", "Age_Ga", "Sc_ppm"], 0));
+        optionList($("ySelect"), state.numericColumns, preferredColumn(["TiO2_wt%", "Lu_ppm"], 1));
+        optionList($("numSelect"), state.numericColumns, preferredColumn(["Zr_ppm"], 0));
+        optionList($("denSelect"), state.numericColumns, preferredColumn(["Nb_ppm"], 1));
+        $("newName").value = "Zr_Nb_new";
+        $("xTitle").value = "";
+        $("yTitle").value = "";
+
+        const typeList = $("typeList");
+        typeList.innerHTML = "";
+        for (const type of state.types) {
+          const row = document.createElement("label");
+          row.className = "type-item";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = true;
+          checkbox.dataset.type = type;
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) state.selectedTypes.add(type);
+            else state.selectedTypes.delete(type);
+            render();
+          });
+          const swatch = document.createElement("span");
+          swatch.className = "swatch";
+          swatch.style.background = (styles[type] || styles["Apollo 16"]).color;
+          swatch.style.borderColor = (styles[type] || styles["Apollo 16"]).border;
+          const text = document.createElement("span");
+          text.textContent = type;
+          row.append(checkbox, swatch, text);
+          typeList.appendChild(row);
+        }
+      }
+
+      function niceTicks(min, max, count = 5) {
+        if (min === max) return [min];
+        const span = max - min;
+        const raw = span / Math.max(1, count);
+        const power = Math.pow(10, Math.floor(Math.log10(raw)));
+        const step = [1, 2, 5, 10].find((x) => raw <= x * power) * power;
+        const start = Math.ceil(min / step) * step;
+        const ticks = [];
+        for (let value = start; value <= max + step * 0.5; value += step) ticks.push(Number(value.toPrecision(12)));
+        return ticks;
+      }
+
+      function fmt(value) {
+        if (!Number.isFinite(value)) return "";
+        const abs = Math.abs(value);
+        if (abs !== 0 && (abs < 0.01 || abs >= 10000)) return value.toExponential(2);
+        return Number(value.toPrecision(4)).toString();
+      }
+
+      function transform(value, log) {
+        if (!log) return value;
+        return value > 0 ? Math.log10(value) : NaN;
+      }
+
+      function markerPath(marker, x, y, size) {
+        if (marker === "square") return `M ${x - size} ${y - size} L ${x + size} ${y - size} L ${x + size} ${y + size} L ${x - size} ${y + size} Z`;
+        if (marker === "diamond") return `M ${x} ${y - size * 1.3} L ${x + size * 1.3} ${y} L ${x} ${y + size * 1.3} L ${x - size * 1.3} ${y} Z`;
+        if (marker === "triangle") return `M ${x} ${y - size * 1.35} L ${x + size * 1.25} ${y + size * 0.95} L ${x - size * 1.25} ${y + size * 0.95} Z`;
+        return "";
+      }
+
+      function markerStrokeWidth(borderColor) {
+        return borderColor && borderColor.toUpperCase() === "#FFFFFF" ? 0.6 : 0.9;
+      }
+
+      function legendStrokeWidth(borderColor) {
+        return borderColor && borderColor.toUpperCase() === "#FFFFFF" ? 0.7 : 1.3;
+      }
+
+      function svgEl(name, attrs = {}) {
+        const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+        for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+        return el;
+      }
+
+      function render() {
+        const xName = $("xSelect").value;
+        const yName = $("ySelect").value;
+        const xAxisTitle = $("xTitle").value.trim() || xName;
+        const yAxisTitle = $("yTitle").value.trim() || yName;
+        const plotTitle = `${xAxisTitle} vs ${yAxisTitle}`;
+        const logX = $("logX").checked;
+        const logY = $("logY").checked;
+        const showLegend = $("showLegend").checked;
+        const autoRange = $("autoRange").checked;
+        const svg = $("chart");
+        svg.innerHTML = "";
+
+        const width = 1200;
+        const height = 900;
+        const margin = { top: 62, right: 70, bottom: 85, left: 115 };
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+        if (!state.rows.length || !xName || !yName) {
+          $("chartTitle").textContent = "等待上传 Excel";
+          $("stats").textContent = "选择文件后开始。";
+          return;
+        }
+
+        const points = state.rows
+          .map((row) => ({ row, type: String(row.Type || ""), xRaw: row[xName], yRaw: row[yName], sample: row.Parent_Sample_ID || row.Record_ID || "" }))
+          .filter((p) => state.selectedTypes.has(p.type) && isFiniteNumber(p.xRaw) && isFiniteNumber(p.yRaw))
+          .map((p) => ({ ...p, x: transform(p.xRaw, logX), y: transform(p.yRaw, logY) }))
+          .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+        $("chartTitle").textContent = plotTitle;
+        $("stats").textContent = `${points.length} points; ${state.selectedTypes.size} Type; ${state.fileName}`;
+
+        if (!points.length) {
+          svg.appendChild(svgEl("text", { x: 40, y: 60, fill: "#b42318" })).textContent = "No plottable points.";
+          return;
+        }
+
+        let xMin = Math.min(...points.map((p) => p.x));
+        let xMax = Math.max(...points.map((p) => p.x));
+        let yMin = Math.min(...points.map((p) => p.y));
+        let yMax = Math.max(...points.map((p) => p.y));
+        const pad = (min, max) => {
+          const span = max - min || Math.abs(max) || 1;
+          return [min - span * 0.06, max + span * 0.06];
+        };
+        if (autoRange) {
+          [xMin, xMax] = pad(xMin, xMax);
+          [yMin, yMax] = pad(yMin, yMax);
+          $("xMin").value = "";
+          $("xMax").value = "";
+          $("yMin").value = "";
+          $("yMax").value = "";
+        } else {
+          const userXMin = Number($("xMin").value);
+          const userXMax = Number($("xMax").value);
+          const userYMin = Number($("yMin").value);
+          const userYMax = Number($("yMax").value);
+          if (Number.isFinite(userXMin)) xMin = logX ? Math.log10(userXMin) : userXMin;
+          if (Number.isFinite(userXMax)) xMax = logX ? Math.log10(userXMax) : userXMax;
+          if (Number.isFinite(userYMin)) yMin = logY ? Math.log10(userYMin) : userYMin;
+          if (Number.isFinite(userYMax)) yMax = logY ? Math.log10(userYMax) : userYMax;
+        }
+        if (!(xMax > xMin) || !(yMax > yMin)) return;
+
+        const plotW = width - margin.left - margin.right;
+        const plotH = height - margin.top - margin.bottom;
+        const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
+        const sy = (y) => margin.top + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
+
+        svg.appendChild(svgEl("rect", { x: 0, y: 0, width, height, fill: "#fff" }));
+        svg.appendChild(svgEl("rect", { x: margin.left, y: margin.top, width: plotW, height: plotH, fill: "none", stroke: "#000", "stroke-width": 1.5 }));
+
+        for (const tick of niceTicks(xMin, xMax, 6)) {
+          const x = sx(tick);
+          svg.appendChild(svgEl("line", { class: "tick", x1: x, y1: margin.top + plotH, x2: x, y2: margin.top + plotH + 6 }));
+          const label = svgEl("text", { class: "tick-label", x, y: margin.top + plotH + 28, "text-anchor": "middle" });
+          label.textContent = logX ? fmt(Math.pow(10, tick)) : fmt(tick);
+          svg.appendChild(label);
+        }
+        for (const tick of niceTicks(yMin, yMax, 6)) {
+          const y = sy(tick);
+          svg.appendChild(svgEl("line", { class: "tick", x1: margin.left - 6, y1: y, x2: margin.left, y2: y }));
+          const label = svgEl("text", { class: "tick-label", x: margin.left - 12, y: y + 6, "text-anchor": "end" });
+          label.textContent = logY ? fmt(Math.pow(10, tick)) : fmt(tick);
+          svg.appendChild(label);
+        }
+
+        const xLabel = svgEl("text", { class: "axis-label", x: margin.left + plotW / 2, y: margin.top + plotH + 54, "text-anchor": "middle" });
+        xLabel.textContent = logX ? `${xAxisTitle} (log10)` : xAxisTitle;
+        svg.appendChild(xLabel);
+        const yLabelX = 54;
+        const yLabel = svgEl("text", { class: "axis-label", x: yLabelX, y: margin.top + plotH / 2, transform: `rotate(-90 ${yLabelX} ${margin.top + plotH / 2})`, "text-anchor": "middle" });
+        yLabel.textContent = logY ? `${yAxisTitle} (log10)` : yAxisTitle;
+        svg.appendChild(yLabel);
+
+        const tooltip = $("tooltip");
+        const pointSize = 8;
+        for (const p of points) {
+          const style = styles[p.type] || { color: "#888888", border: "#FFFFFF", marker: "circle" };
+          const x = sx(p.x);
+          const y = sy(p.y);
+          const strokeWidth = markerStrokeWidth(style.border);
+          let mark;
+          if (style.marker === "circle") mark = svgEl("circle", { cx: x, cy: y, r: pointSize, fill: style.color, stroke: style.border, "stroke-width": strokeWidth });
+          else mark = svgEl("path", { d: markerPath(style.marker, x, y, pointSize), fill: style.color, stroke: style.border, "stroke-width": strokeWidth });
+          mark.addEventListener("mousemove", (event) => {
+            tooltip.style.display = "block";
+            tooltip.style.left = `${event.clientX + 14}px`;
+            tooltip.style.top = `${event.clientY + 14}px`;
+            tooltip.innerHTML = `<b>${p.sample}</b><br>${p.type}<br>${xName}: ${fmt(p.xRaw)}<br>${yName}: ${fmt(p.yRaw)}`;
+          });
+          mark.addEventListener("mouseleave", () => (tooltip.style.display = "none"));
+          svg.appendChild(mark);
+        }
+
+        if (showLegend) {
+          let legendY = margin.top + 26;
+          const legendX = margin.left + 18;
+          for (const type of state.types.filter((t) => state.selectedTypes.has(t))) {
+            const style = styles[type] || { color: "#888888", border: "#FFFFFF", marker: "circle" };
+            const strokeWidth = legendStrokeWidth(style.border);
+            let mark;
+            if (style.marker === "circle") mark = svgEl("circle", { cx: legendX + 6, cy: legendY - 4, r: pointSize, fill: style.color, stroke: style.border, "stroke-width": strokeWidth });
+            else mark = svgEl("path", { d: markerPath(style.marker, legendX + 6, legendY - 4, pointSize), fill: style.color, stroke: style.border, "stroke-width": strokeWidth });
+            svg.appendChild(mark);
+            const label = svgEl("text", { class: "legend-text", x: legendX + 20, y: legendY, "text-anchor": "start" });
+            label.textContent = type;
+            svg.appendChild(label);
+            legendY += 25;
+          }
+        }
+      }
+
+      async function handleFile() {
+        const file = $("fileInput").files[0];
+        if (!file) return;
+        state.fileName = file.name;
+        const buffer = await file.arrayBuffer();
+        state.workbook = XLSX.read(buffer, { type: "array", cellDates: false });
+        optionList($("sheetSelect"), state.workbook.SheetNames, state.workbook.SheetNames.includes("Sheet1") ? "Sheet1" : state.workbook.SheetNames[0]);
+        $("sheetSelect").disabled = false;
+        $("loadSheet").disabled = false;
+        parseWorkbookSheet($("sheetSelect").value);
+      }
+
+      function addRatioColumn() {
+        const name = $("newName").value.trim();
+        const num = $("numSelect").value;
+        const den = $("denSelect").value;
+        const message = $("message");
+        message.innerHTML = "";
+        if (!name) {
+          message.innerHTML = '<div class="error">请填写新列名。</div>';
+          return;
+        }
+        if (state.numericColumns.includes(name)) {
+          message.innerHTML = '<div class="error">这个列名已经存在，请换一个。</div>';
+          return;
+        }
+        for (const row of state.rows) {
+          const a = row[num];
+          const b = row[den];
+          row[name] = isFiniteNumber(a) && isFiniteNumber(b) && b !== 0 ? a / b : null;
+        }
+        state.columns.push(name);
+        state.numericColumns.push(name);
+        state.derivedColumns.push(`${name} = ${num} / ${den}`);
+        const currentX = $("xSelect").value;
+        optionList($("xSelect"), state.numericColumns, currentX);
+        optionList($("ySelect"), state.numericColumns, name);
+        optionList($("numSelect"), state.numericColumns, num);
+        optionList($("denSelect"), state.numericColumns, den);
+        $("derivedList").innerHTML = state.derivedColumns.map((d) => `<span class="pill">${d}</span>`).join("");
+        render();
+      }
+
+      function downloadSvg() {
+        const svg = $("chart").cloneNode(true);
+        svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        style.textContent = ".axis{stroke:#000;stroke-width:1.4}.tick{stroke:#000;stroke-width:1.1}.tick-label{fill:#2f3742;font-size:20px}.axis-label{fill:#2f3742;font-size:32px;font-weight:700}.legend-text{fill:#2f3742;font-size:18px}";
+        svg.insertBefore(style, svg.firstChild);
+        const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${$("chartTitle").textContent || "scatter"}.svg`.replace(/[\\/:*?"<>|]+/g, "_");
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      $("fileInput").addEventListener("change", handleFile);
+      $("loadSheet").addEventListener("click", () => parseWorkbookSheet($("sheetSelect").value));
+      ["xSelect", "ySelect", "xTitle", "yTitle", "logX", "logY", "showLegend", "autoRange", "xMin", "xMax", "yMin", "yMax"].forEach((id) => {
+        const eventName = ["xTitle", "yTitle", "xMin", "xMax", "yMin", "yMax"].includes(id) ? "input" : "change";
+        $(id).addEventListener(eventName, render);
+      });
+      $("selectAll").addEventListener("click", () => {
+        const allSelected = state.selectedTypes.size === state.types.length;
+        state.selectedTypes = new Set(allSelected ? [] : state.types);
+        document.querySelectorAll("#typeList input[type='checkbox']").forEach((box) => (box.checked = !allSelected));
+        render();
+      });
+      $("addRatio").addEventListener("click", addRatioColumn);
+      $("downloadSvg").addEventListener("click", downloadSvg);
+      render();
+    </script>
+  </body>
+</html>
