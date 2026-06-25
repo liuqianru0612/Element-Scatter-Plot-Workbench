@@ -16,19 +16,20 @@
       --accent-dark: #10544e;
       --blue: #315f92;
       --danger: #a43a32;
+      --sidebar-width: 350px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       background: var(--bg);
       color: var(--ink);
-      font: 14px/1.45 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      font: 14px/1.45 Calibri, FangSong, "仿宋", sans-serif;
     }
     button, select, input { font: inherit; }
     .app {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 350px minmax(0, 1fr);
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     }
     aside {
       background: var(--panel);
@@ -45,6 +46,22 @@
       text-transform: uppercase;
       color: #4f5b68;
     }
+    .control-section {
+      margin-top: 10px;
+      border-top: 1px solid #e2e7ec;
+      padding-top: 4px;
+    }
+    .control-section > summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 8px 0;
+      color: #4f5b68;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .control-section > summary::before { content: "▸"; display: inline-block; width: 16px; }
+    .control-section[open] > summary::before { content: "▾"; }
+    .control-section > summary::-webkit-details-marker { display: none; }
     .muted { color: var(--muted); }
     .tabs {
       display: grid;
@@ -197,20 +214,62 @@
       padding-top: 9px;
       border-top: 1px solid var(--line);
     }
-    .style-preview {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      min-height: 34px;
-      color: var(--muted);
+    .legend-editor-table {
+      margin-top: 8px;
+      max-height: 430px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #fff;
     }
-    .preview-marker {
-      width: 17px;
-      height: 17px;
-      flex: 0 0 17px;
-      background: #777;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 1px #aab2bd;
+    .legend-editor-head,
+    .legend-editor-row {
+      display: grid;
+      grid-template-columns: minmax(125px, 1fr) 44px 44px 78px 27px;
+      gap: 5px;
+      align-items: center;
+      min-height: 37px;
+      padding: 4px 5px;
+      border-bottom: 1px solid #e4e8ed;
+    }
+    .legend-editor-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #eef2f5;
+      color: #4b5563;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .legend-editor-row:last-child { border-bottom: 0; }
+    .legend-editor-row.level-mission .legend-name { padding-left: 13px; }
+    .legend-editor-row.level-sub .legend-name { padding-left: 26px; }
+    .legend-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      line-height: 1.3;
+    }
+    .legend-editor-row input[type="color"] {
+      height: 28px;
+      min-height: 28px;
+      padding: 1px;
+    }
+    .legend-editor-row select {
+      min-height: 29px;
+      padding: 3px;
+      font-size: 12px;
+    }
+    .reset-row {
+      width: 27px;
+      min-height: 27px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .style-file-input {
+      display: none;
     }
     .status {
       margin-top: 10px;
@@ -238,9 +297,9 @@
     .chart-note { color: var(--muted); min-height: 20px; }
     .axis, .plot-frame { stroke: #000; stroke-width: 1.4; fill: none; }
     .tick { stroke: #000; stroke-width: 1.1; }
-    .tick-label { fill: #252b32; font-size: 20px; }
-    .axis-label { fill: #252b32; font-size: 32px; font-weight: 700; }
-    .legend-text { fill: #252b32; font-size: 12px; }
+    .tick-label { fill: #252b32; font-size: 20px; font-family: Calibri, FangSong, "仿宋", sans-serif; }
+    .axis-label { fill: #252b32; font-size: 32px; font-weight: 700; font-family: Calibri, FangSong, "仿宋", sans-serif; }
+    .legend-text { fill: #252b32; font-size: 12px; font-family: Calibri, FangSong, "仿宋", sans-serif; }
     #tooltip {
       position: fixed;
       display: none;
@@ -266,12 +325,27 @@
     <aside>
       <h1>元素作图工作台</h1>
       <div class="muted">数据仅在当前浏览器中处理，不上传到服务器。</div>
+      <label for="sidebarWidth">控制栏宽度</label>
+      <input id="sidebarWidth" type="range" min="300" max="620" value="350">
 
-      <h2>数据</h2>
+      <details class="control-section" open>
+      <summary>数据</summary>
       <label for="fileInput">Excel 或 CSV 文件</label>
       <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.csv">
       <label for="sheetSelect">工作表</label>
       <select id="sheetSelect" disabled></select>
+      </details>
+
+      <details class="control-section">
+      <summary>计算列</summary>
+      <label for="newName">新列名称</label>
+      <input id="newName" type="text" placeholder="例如 Zr_Nb" disabled>
+      <div class="row">
+        <div><label for="numSelect">分子</label><select id="numSelect" disabled></select></div>
+        <div><label for="denSelect">分母</label><select id="denSelect" disabled></select></div>
+      </div>
+      <button id="addRatio" class="command secondary" type="button" disabled>新增比值列</button>
+      </details>
 
       <div class="tabs" role="tablist">
         <button id="scatterTab" class="tab active" type="button">散点图</button>
@@ -279,7 +353,8 @@
       </div>
 
       <section id="scatterControls" class="panel">
-        <h2>坐标</h2>
+        <details class="control-section" open>
+        <summary>坐标</summary>
         <div class="row">
           <div><label for="xSelect">横坐标</label><select id="xSelect" disabled></select></div>
           <div><label for="ySelect">纵坐标</label><select id="ySelect" disabled></select></div>
@@ -292,14 +367,38 @@
           <div class="check-row"><input id="logX" type="checkbox" disabled><label for="logX">横轴对数</label></div>
           <div class="check-row"><input id="logY" type="checkbox" disabled><label for="logY">纵轴对数</label></div>
         </div>
+        <label>横轴范围与刻度</label>
+        <div class="row">
+          <input id="xMin" type="number" step="any" placeholder="最小值" disabled>
+          <input id="xMax" type="number" step="any" placeholder="最大值" disabled>
+        </div>
+        <input id="xStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
+        <label>纵轴范围与刻度</label>
+        <div class="row">
+          <input id="yMin" type="number" step="any" placeholder="最小值" disabled>
+          <input id="yMax" type="number" step="any" placeholder="最大值" disabled>
+        </div>
+        <input id="yStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
+        </details>
       </section>
 
       <section id="lineControls" class="panel" hidden>
-        <h2>元素序列</h2>
+        <details class="control-section" open>
+        <summary>元素序列与折线</summary>
         <div class="element-actions">
           <button id="reePreset" class="mini-button" type="button" disabled>稀土元素预设</button>
+          <button id="normalizedPreset" class="mini-button" type="button" disabled>全部 _N</button>
           <button id="selectAllElements" class="mini-button" type="button" disabled>全选</button>
           <button id="clearElements" class="mini-button" type="button" disabled>清空</button>
+        </div>
+        <label for="seriesName">临时保存当前元素系列</label>
+        <div class="row">
+          <input id="seriesName" type="text" placeholder="例如 REE 精简组合" disabled>
+          <button id="saveSeries" class="mini-button" type="button" disabled>保存</button>
+        </div>
+        <div class="row">
+          <select id="savedSeries" disabled></select>
+          <button id="deleteSeries" class="mini-button" type="button" disabled>删除</button>
         </div>
         <div class="element-picker">
           <div>
@@ -320,22 +419,31 @@
         <select id="meanField" disabled></select>
         <div class="check-row"><input id="lineLogY" type="checkbox" checked disabled><label for="lineLogY">纵轴使用对数坐标</label></div>
         <div class="check-row"><input id="showMarkers" type="checkbox" checked disabled><label for="showMarkers">显示数据点</label></div>
+        <div class="check-row"><input id="showSd" type="checkbox" checked disabled><label for="showSd">平均值显示 ±1 SD 阴影</label></div>
+        <label>纵轴范围与刻度</label>
+        <div class="row">
+          <input id="lineYMin" type="number" step="any" placeholder="最小值" disabled>
+          <input id="lineYMax" type="number" step="any" placeholder="最大值" disabled>
+        </div>
+        <input id="lineYStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
+        </details>
       </section>
 
-      <h2>分类样式</h2>
+      <details class="control-section" open>
+      <summary>分类与筛选</summary>
       <label for="colorMode">颜色规则</label>
       <select id="colorMode" disabled>
-        <option value="hierarchy">Mission 色系 + Sub_Type 色阶</option>
+        <option value="hierarchy">Mission 色系 + Sub 色阶</option>
         <option value="mission">仅按 Mission</option>
-        <option value="ti">仅按 Ti_Type</option>
+        <option value="ti">仅按 Ti</option>
         <option value="type">按 Type</option>
       </select>
       <label for="shapeMode">点形状规则</label>
       <select id="shapeMode" disabled>
-        <option value="ti">按 Ti_Type</option>
+        <option value="ti">按 Ti</option>
         <option value="uniform">全部圆形</option>
       </select>
-      <label>层级筛选：Ti_Type → Mission → Sub_Type</label>
+      <label>层级筛选：Ti → Mission → Sub</label>
       <div class="tree-actions">
         <button id="selectAllTree" class="mini-button" type="button" disabled>全选</button>
         <button id="clearTree" class="mini-button" type="button" disabled>清空</button>
@@ -343,43 +451,40 @@
         <button id="collapseTree" class="mini-button" type="button" disabled>折叠</button>
       </div>
       <div id="filterList" class="filter-list"><div class="muted">请先导入文件</div></div>
+      </details>
+
+      <details class="control-section">
+      <summary>图例与样式</summary>
       <div class="check-row"><input id="showLegend" type="checkbox" checked disabled><label for="showLegend">显示图例</label></div>
-      <div class="style-editor">
-        <label for="styleTarget">编辑类别样式</label>
-        <select id="styleTarget" disabled></select>
-        <div class="row">
-          <div><label for="fillColor">填充色</label><input id="fillColor" type="color" value="#3478B8" disabled></div>
-          <div><label for="borderColor">边框色</label><input id="borderColor" type="color" value="#FFFFFF" disabled></div>
-        </div>
-        <label for="markerShape">形状</label>
-        <select id="markerShape" disabled>
-          <option value="circle">圆形</option>
-          <option value="square">方形</option>
-          <option value="diamond">菱形</option>
-          <option value="triangle">三角形</option>
-        </select>
-        <div id="stylePreview" class="style-preview"><span id="previewMarker" class="preview-marker"></span><span>当前样式预览</span></div>
-        <div class="button-row">
-          <button id="applyStyle" class="command" type="button" disabled>应用样式</button>
-          <button id="resetStyle" class="command secondary" type="button" disabled>恢复默认</button>
-        </div>
-      </div>
-
-      <h2>计算列</h2>
-      <label for="newName">新列名称</label>
-      <input id="newName" type="text" placeholder="例如 Zr_Nb" disabled>
       <div class="row">
-        <div><label for="numSelect">分子</label><select id="numSelect" disabled></select></div>
-        <div><label for="denSelect">分母</label><select id="denSelect" disabled></select></div>
+        <button id="resetLegendPosition" class="mini-button" type="button" disabled>重置图例位置</button>
+        <label class="check-row"><input id="legendInteractive" type="checkbox" checked disabled>允许拖动缩放</label>
       </div>
-      <button id="addRatio" class="command secondary" type="button" disabled>新增比值列</button>
+      <div class="style-editor">
+        <label for="legendEditorMode">图例样式表</label>
+        <select id="legendEditorMode" disabled>
+          <option value="type">第一类：Type</option>
+          <option value="hierarchy">第二类：Ti → Mission → Sub</option>
+        </select>
+        <div id="legendEditorTable" class="legend-editor-table">
+          <div class="muted" style="padding:8px">请先导入文件</div>
+        </div>
+        <div class="button-row">
+          <button id="exportStyles" class="command" type="button" disabled>导出样式配置</button>
+          <button id="importStyles" class="command secondary" type="button" disabled>导入样式配置</button>
+        </div>
+        <input id="styleFileInput" class="style-file-input" type="file" accept=".json">
+      </div>
+      </details>
 
-      <h2>导出图片</h2>
+      <details class="control-section" open>
+      <summary>导出图片</summary>
       <div class="button-row">
         <button id="downloadPng" class="command" type="button" disabled>导出 PNG</button>
         <button id="downloadSvg" class="command secondary" type="button" disabled>导出 SVG</button>
       </div>
       <div id="status" class="status"></div>
+      </details>
     </aside>
 
     <main>
@@ -394,7 +499,12 @@
 
   <script>
     const NS = "http://www.w3.org/2000/svg";
-    const categoryFields = ["Type", "Mission", "Ti_Type", "Sub_Type"];
+    const categoryFieldAliases = {
+      Type: ["Type"],
+      Ti: ["Ti", "Ti_Type"],
+      Mission: ["Mission"],
+      Sub: ["Sub", "Sub_Type"]
+    };
     const missionColors = {
       "Apollo 11": "#E87524", "Apollo11": "#E87524",
       "Apollo 17": "#E3B323", "A17": "#E3B323",
@@ -420,10 +530,33 @@
       "KREEP": "triangle"
     };
     const fallbackPalette = ["#4E79A7","#F28E2B","#59A14F","#E15759","#B07AA1","#76B7B2","#EDC948","#9C755F","#BAB0AC"];
+    const defaultStyleOverrides = {
+      "type:CE-5 Low-Ti":{"color":"#00e9fa","border":"#ff0000","shape":"square"},
+      "type:CE-6 Low-Ti":{"color":"#64499b","border":"#ee00ff","shape":"square"},
+      "type:CE-6 Very low-Ti":{"color":"#876bc1","border":"#fb00ff","shape":"diamond"},
+      "type:Met Low-Ti":{"color":"#003585","border":"#ffffff","shape":"square"},
+      "type:Met Very low-Ti":{"color":"#5700ad","border":"#ffffff","shape":"diamond"},
+      "type:Apollo 11 High-Ti-K":{"color":"#eb863e","border":"#c8ff00","shape":"circle"},
+      "type:Apollo 15 KREEP":{"color":"#328250","border":"#fbff00","shape":"triangle"},
+      "leaf:KREEP\u0001Apollo 15\u0001Apollo 15 KREEP":{"color":"#2b7044","border":"#fff700","shape":"triangle"},
+      "leaf:Low-Ti\u0001Apollo 14\u0001Apollo 14 KREEP":{"color":"#516370","border":"#fbff00","shape":"square"},
+      "mission:Low-Ti\u0001CE-5":{"color":"#23e1de","border":"#ff0000","shape":"square"},
+      "leaf:Low-Ti\u0001CE-5\u0001CE-5 Low-Ti":{"color":"#1a99a2","border":"#ff0000","shape":"square"},
+      "mission:Low-Ti\u0001CE-6":{"color":"#2f58fe","border":"#ff00ea","shape":"square"},
+      "leaf:Low-Ti\u0001CE-6\u0001CE-6 Low-Ti":{"color":"#24bdff","border":"#ff00dd","shape":"square"},
+      "leaf:Low-Ti\u0001Met\u0001Met Low-Ti":{"color":"#0044a3","border":"#ffffff","shape":"square"},
+      "ti:Very low-Ti":{"color":"#4600c7","border":"#ffffff","shape":"diamond"},
+      "mission:Very low-Ti\u0001CE-6":{"color":"#7757b8","border":"#fb00ff","shape":"diamond"},
+      "leaf:Very low-Ti\u0001CE-6\u0001CE-6 Very low-Ti":{"color":"#664b9e","border":"#ff00ea","shape":"diamond"},
+      "mission:Very low-Ti\u0001Met":{"color":"#2d00a8","border":"#ffffff","shape":"diamond"},
+      "leaf:Very low-Ti\u0001Met\u0001Met Very low-Ti":{"color":"#0006c2","border":"#ffffff","shape":"diamond"}
+    };
     const state = {
       workbook: null, sheetName: "", headers: [], rows: [], mode: "scatter",
       numericHeaders: [], selectedElements: [], selectedLeafKeys: new Set(),
-      tree: new Map(), subtypeIndex: new Map(), styleOverrides: new Map()
+      tree: new Map(), subtypeIndex: new Map(), typeIndex: new Map(),
+      styleOverrides: new Map(Object.entries(defaultStyleOverrides)),
+      savedSeries: new Map(), legend: { x: 930, y: 102, scale: 1 }
     };
     const $ = id => document.getElementById(id);
     const svg = $("chart");
@@ -447,6 +580,19 @@
       const n = Number(value.replace(/,/g, "").trim());
       return Number.isFinite(n) ? n : NaN;
     }
+    function inputNumber(id) {
+      const value = Number($(id).value);
+      return $(id).value !== "" && Number.isFinite(value) ? value : null;
+    }
+    function manualDomain(autoDomain, minId, maxId, log) {
+      let min = inputNumber(minId), max = inputNumber(maxId);
+      if (log) {
+        min = min !== null && min > 0 ? Math.log10(min) : null;
+        max = max !== null && max > 0 ? Math.log10(max) : null;
+      }
+      const domain = [min ?? autoDomain[0], max ?? autoDomain[1]];
+      return domain[0] < domain[1] ? domain : autoDomain;
+    }
     function safeName(name) {
       return (name || "chart").replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ").trim();
     }
@@ -462,20 +608,34 @@
       const p = Math.abs(amount);
       return "#" + rgb.map(v => Math.round(v + (target-v)*p).toString(16).padStart(2,"0")).join("");
     }
-    function baseMission(row) { return clean(row.Mission) || "未分类"; }
-    function subtype(row) { return clean(row.Sub_Type) || "未细分"; }
-    function tiType(row) { return clean(row.Ti_Type) || "未分类"; }
+    function categoryFieldName(logicalName) {
+      return (categoryFieldAliases[logicalName] || []).find(name => state.headers.includes(name)) || "";
+    }
+    function categoryValue(row, logicalName) {
+      const field = categoryFieldName(logicalName);
+      return field ? clean(row[field]) : "";
+    }
+    function baseMission(row) { return categoryValue(row, "Mission") || "未分类"; }
+    function subtype(row) { return categoryValue(row, "Sub") || "未细分"; }
+    function tiType(row) { return categoryValue(row, "Ti") || "未分类"; }
     function typeName(row) { return clean(row.Type) || "未分类"; }
     function rebuildSubtypeIndex() {
       state.subtypeIndex.clear();
+      state.typeIndex.clear();
       const grouped = new Map();
+      const groupedTypes = new Map();
       state.rows.forEach(row => {
         const m = baseMission(row);
         if (!grouped.has(m)) grouped.set(m, new Set());
         grouped.get(m).add(subtype(row));
+        if (!groupedTypes.has(m)) groupedTypes.set(m, new Set());
+        groupedTypes.get(m).add(typeName(row));
       });
       grouped.forEach((set, mission) => {
         [...set].sort().forEach((sub, i) => state.subtypeIndex.set(mission + "\u0000" + sub, { i, n: set.size }));
+      });
+      groupedTypes.forEach((set, mission) => {
+        [...set].sort().forEach((type, i) => state.typeIndex.set(mission + "\u0000" + type, { i, n: set.size }));
       });
     }
     function styleFor(row) {
@@ -494,14 +654,19 @@
       } else if (mode === "ti") {
         color = tiColors[ti] || fallbackPalette[hash(ti) % fallbackPalette.length];
       } else {
-        color = fallbackPalette[hash(typeName(row)) % fallbackPalette.length];
+        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
+        const meta = state.typeIndex.get(mission + "\u0000" + typeName(row)) || { i: 0, n: 1 };
+        const steps = meta.n <= 1 ? [0] : [-0.16, 0.12, -0.3, 0.27, 0.4];
+        color = mix(base, steps[meta.i % steps.length]);
       }
       const base = {
         color,
         border: "#FFFFFF",
         shape: $("shapeMode").value === "ti" ? (tiShapes[ti] || "circle") : "circle"
       };
-      const scopes = [`ti:${ti}`, `mission:${ti}\u0001${mission}`, `leaf:${ti}\u0001${mission}\u0001${sub}`];
+      const scopes = mode === "type"
+        ? [`type:${typeName(row)}`]
+        : [`ti:${ti}`, `mission:${ti}\u0001${mission}`, `leaf:${ti}\u0001${mission}\u0001${sub}`];
       scopes.forEach(key => Object.assign(base, state.styleOverrides.get(key) || {}));
       return base;
     }
@@ -514,7 +679,7 @@
       return shape === "ti" && mode !== "ti" ? `${colorLabel} / ${tiType(row)}` : colorLabel;
     }
     function setEnabled(enabled) {
-      document.querySelectorAll("aside select, aside input:not(#fileInput), aside button.command").forEach(el => el.disabled = !enabled);
+      document.querySelectorAll("aside select, aside input:not(#fileInput):not(#sidebarWidth), aside button.command").forEach(el => el.disabled = !enabled);
       document.querySelectorAll("aside .mini-button").forEach(el => el.disabled = !enabled);
       $("sheetSelect").disabled = !state.workbook;
       updateLineModeState();
@@ -554,7 +719,8 @@
       state.selectedElements = reeColumns(numericHeaders);
       if (state.selectedElements.length < 2) state.selectedElements = numericHeaders.slice(0, Math.min(8, numericHeaders.length));
       renderElementPicker();
-      const presentFields = categoryFields.filter(f => state.headers.includes(f));
+      renderSavedSeries();
+      const presentFields = ["Type", "Ti", "Mission", "Sub"].map(categoryFieldName).filter(Boolean);
       setOptions($("meanField"), presentFields.length ? presentFields : ["Type"]);
       buildClassificationTree();
       setEnabled(true);
@@ -606,6 +772,45 @@
       });
       if (!state.selectedElements.length) selected.append(Object.assign(document.createElement("div"), { className: "muted", textContent: "尚未选择元素" }));
     }
+    function renderSavedSeries() {
+      const select = $("savedSeries");
+      select.replaceChildren();
+      if (!state.savedSeries.size) {
+        select.add(new Option("暂无已保存系列", ""));
+        select.disabled = true;
+        $("deleteSeries").disabled = true;
+        return;
+      }
+      select.disabled = false;
+      $("deleteSeries").disabled = false;
+      state.savedSeries.forEach((columns, name) => select.add(new Option(`${name}（${columns.length}）`, name)));
+    }
+    function saveCurrentSeries() {
+      const name = $("seriesName").value.trim();
+      if (!name) return showStatus("请输入系列名称。", true);
+      if (!state.selectedElements.length) return showStatus("当前没有可保存的元素。", true);
+      state.savedSeries.set(name, [...state.selectedElements]);
+      sessionStorage.setItem("elementPlotSavedSeries", JSON.stringify(Object.fromEntries(state.savedSeries)));
+      $("seriesName").value = "";
+      renderSavedSeries();
+      $("savedSeries").value = name;
+      showStatus(`已临时保存元素系列“${name}”。`);
+    }
+    function restoreSavedSeries(name) {
+      const columns = state.savedSeries.get(name);
+      if (!columns) return;
+      state.selectedElements = columns.filter(column => state.numericHeaders.includes(column));
+      renderElementPicker();
+      render();
+    }
+    function deleteSavedSeries() {
+      const name = $("savedSeries").value;
+      if (!name) return;
+      state.savedSeries.delete(name);
+      sessionStorage.setItem("elementPlotSavedSeries", JSON.stringify(Object.fromEntries(state.savedSeries)));
+      renderSavedSeries();
+      showStatus(`已删除临时系列“${name}”。`);
+    }
     function moveElement(index, delta) {
       const target = index + delta;
       if (target < 0 || target >= state.selectedElements.length) return;
@@ -628,7 +833,7 @@
       });
       state.selectedLeafKeys = new Set(state.rows.map(leafKey));
       renderClassificationTree();
-      populateStyleTargets();
+      renderLegendEditor();
     }
     function descendantKeys(ti, mission = null) {
       const keys = [];
@@ -700,73 +905,149 @@
         root.append(tiDetails);
       });
     }
-    function populateStyleTargets() {
-      const select = $("styleTarget");
-      select.replaceChildren();
-      [...state.tree.keys()].sort().forEach(ti => {
-        select.add(new Option(`Ti_Type：${ti}`, `ti:${ti}`));
-        [...state.tree.get(ti).keys()].sort().forEach(mission => {
-          select.add(new Option(`Mission：${ti} / ${mission}`, `mission:${ti}\u0001${mission}`));
-          [...state.tree.get(ti).get(mission).keys()].sort().forEach(sub => {
-            select.add(new Option(`Sub_Type：${ti} / ${mission} / ${sub}`, `leaf:${ti}\u0001${mission}\u0001${sub}`));
-          });
-        });
-      });
-      loadStyleEditor();
-    }
     function representativeRow(target) {
-      const [scope, raw] = target.split(":");
+      const splitAt = target.indexOf(":");
+      const scope = target.slice(0, splitAt);
+      const raw = target.slice(splitAt + 1);
       const parts = raw.split("\u0001");
       return state.rows.find(row => {
+        if (scope === "type") return typeName(row) === raw;
         if (scope === "ti") return tiType(row) === parts[0];
         if (scope === "mission") return tiType(row) === parts[0] && baseMission(row) === parts[1];
         return tiType(row) === parts[0] && baseMission(row) === parts[1] && subtype(row) === parts[2];
       });
     }
-    function inheritedStyle(target) {
+    function defaultStyleForTarget(target) {
       const row = representativeRow(target);
       if (!row) return { color: "#777777", border: "#FFFFFF", shape: "circle" };
-      const saved = state.styleOverrides.get(target);
-      if (!saved) return styleFor(row);
-      state.styleOverrides.delete(target);
-      const style = styleFor(row);
-      state.styleOverrides.set(target, saved);
+      const splitAt = target.indexOf(":");
+      const scope = target.slice(0, splitAt);
+      const mission = baseMission(row), ti = tiType(row), sub = subtype(row);
+      let color;
+      if (scope === "type") {
+        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
+        const meta = state.typeIndex.get(mission + "\u0000" + typeName(row)) || { i: 0, n: 1 };
+        const steps = meta.n <= 1 ? [0] : [-0.16, 0.12, -0.3, 0.27, 0.4];
+        color = mix(base, steps[meta.i % steps.length]);
+      } else if (scope === "ti") {
+        color = tiColors[ti] || fallbackPalette[hash(ti) % fallbackPalette.length];
+      } else if (scope === "mission") {
+        color = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
+      } else {
+        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
+        const meta = state.subtypeIndex.get(mission + "\u0000" + sub) || { i: 0, n: 1 };
+        const steps = [-0.28,-0.14,0,0.15,0.29,0.41];
+        color = mix(base, steps[meta.i % steps.length]);
+      }
+      return { color, border: "#FFFFFF", shape: tiShapes[ti] || "circle" };
+    }
+    function effectiveStyleForTarget(target) {
+      const style = defaultStyleForTarget(target);
+      const splitAt = target.indexOf(":");
+      const scope = target.slice(0, splitAt);
+      const raw = target.slice(splitAt + 1);
+      const parts = raw.split("\u0001");
+      const keys = scope === "type" ? [target]
+        : scope === "ti" ? [target]
+        : scope === "mission" ? [`ti:${parts[0]}`, target]
+        : [`ti:${parts[0]}`, `mission:${parts[0]}\u0001${parts[1]}`, target];
+      keys.forEach(key => Object.assign(style, state.styleOverrides.get(key) || {}));
       return style;
     }
-    function loadStyleEditor() {
-      const target = $("styleTarget").value;
-      if (!target) return;
-      const style = state.styleOverrides.get(target) || inheritedStyle(target);
-      $("fillColor").value = style.color || "#777777";
-      $("borderColor").value = style.border || "#FFFFFF";
-      $("markerShape").value = style.shape || "circle";
-      updateStylePreview();
-    }
-    function updateStylePreview() {
-      const marker = $("previewMarker");
-      const shape = $("markerShape").value;
-      marker.style.background = $("fillColor").value;
-      marker.style.borderColor = $("borderColor").value;
-      marker.style.borderRadius = shape === "circle" ? "50%" : shape === "diamond" ? "2px" : "0";
-      marker.style.transform = shape === "diamond" ? "rotate(45deg) scale(.78)" : "none";
-      marker.style.clipPath = shape === "triangle" ? "polygon(50% 0, 100% 100%, 0 100%)" : "none";
-    }
-    function applyStyleOverride() {
-      const target = $("styleTarget").value;
-      if (!target) return;
-      state.styleOverrides.set(target, {
-        color: $("fillColor").value,
-        border: $("borderColor").value,
-        shape: $("markerShape").value
+    function shapeOptions(selected) {
+      const select = document.createElement("select");
+      [["circle","圆形"],["square","方形"],["diamond","菱形"],["triangle","三角形"]].forEach(([value,label]) => {
+        const option = new Option(label, value);
+        option.selected = value === selected;
+        select.add(option);
       });
-      render();
-      showStatus("自定义图例样式已应用。");
+      return select;
     }
-    function resetStyleOverride() {
-      state.styleOverrides.delete($("styleTarget").value);
-      loadStyleEditor();
-      render();
-      showStatus("该类别已恢复默认样式。");
+    function styleRow(target, label, level = "type") {
+      const style = effectiveStyleForTarget(target);
+      const row = document.createElement("div");
+      row.className = `legend-editor-row level-${level}`;
+      const name = document.createElement("div");
+      name.className = "legend-name";
+      name.textContent = label;
+      name.title = label;
+      const fill = document.createElement("input");
+      fill.type = "color"; fill.value = style.color;
+      fill.title = "填充色";
+      const border = document.createElement("input");
+      border.type = "color"; border.value = style.border;
+      border.title = "边框色";
+      const shape = shapeOptions(style.shape);
+      shape.title = "形状";
+      const reset = document.createElement("button");
+      reset.type = "button"; reset.className = "reset-row"; reset.textContent = "↺"; reset.title = "恢复该项默认样式";
+      const save = () => {
+        state.styleOverrides.set(target, { color: fill.value, border: border.value, shape: shape.value });
+        render();
+      };
+      fill.addEventListener("input", save);
+      border.addEventListener("input", save);
+      shape.addEventListener("change", save);
+      reset.addEventListener("click", () => {
+        if(defaultStyleOverrides[target]) state.styleOverrides.set(target,{...defaultStyleOverrides[target]});
+        else state.styleOverrides.delete(target);
+        renderLegendEditor();
+        render();
+      });
+      row.append(name, fill, border, shape, reset);
+      return row;
+    }
+    function renderLegendEditor() {
+      const table = $("legendEditorTable");
+      if (!table) return;
+      table.replaceChildren();
+      const head = document.createElement("div");
+      head.className = "legend-editor-head";
+      ["类别","填充","边框","形状","重置"].forEach(text => head.append(Object.assign(document.createElement("div"), { textContent: text })));
+      table.append(head);
+      if ($("legendEditorMode").value === "type") {
+        const types = [...new Set(state.rows.map(typeName))].sort();
+        types.forEach(type => table.append(styleRow(`type:${type}`, type, "type")));
+      } else {
+        [...state.tree.keys()].sort().forEach(ti => {
+          table.append(styleRow(`ti:${ti}`, `Ti：${ti}`, "ti"));
+          [...state.tree.get(ti).keys()].sort().forEach(mission => {
+            table.append(styleRow(`mission:${ti}\u0001${mission}`, `Mission：${mission}`, "mission"));
+            [...state.tree.get(ti).get(mission).keys()].sort().forEach(sub => {
+              table.append(styleRow(`leaf:${ti}\u0001${mission}\u0001${sub}`, `Sub：${sub}`, "sub"));
+            });
+          });
+        });
+      }
+    }
+    function exportStyleConfig() {
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        overrides: Object.fromEntries(state.styleOverrides)
+      };
+      downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), "legend-style-config.json");
+    }
+    async function importStyleConfig(file) {
+      try {
+        const payload = JSON.parse(await file.text());
+        const overrides = payload.overrides || payload;
+        const allowedShapes = new Set(["circle","square","diamond","triangle"]);
+        state.styleOverrides.clear();
+        Object.entries(overrides).forEach(([key, style]) => {
+          if (!style || typeof style !== "object") return;
+          state.styleOverrides.set(key, {
+            color: /^#[0-9a-f]{6}$/i.test(style.color || "") ? style.color : "#777777",
+            border: /^#[0-9a-f]{6}$/i.test(style.border || "") ? style.border : "#FFFFFF",
+            shape: allowedShapes.has(style.shape) ? style.shape : "circle"
+          });
+        });
+        renderLegendEditor();
+        render();
+        showStatus(`已导入 ${state.styleOverrides.size} 项图例样式。`);
+      } catch (error) {
+        showStatus(`样式配置读取失败：${error.message || error}`, true);
+      }
     }
     function filteredRows() {
       return state.rows.filter(r => state.selectedLeafKeys.has(leafKey(r)));
@@ -793,13 +1074,17 @@
       }
       const pad = (max-min)*.07 || 1; return [min-pad,max+pad];
     }
-    function ticks(domain, log, count = 6) {
+    function ticks(domain, log, count = 6, customStep = null) {
       const out = [];
       if (log) {
         const a = Math.floor(domain[0]), b = Math.ceil(domain[1]);
-        for (let p=a; p<=b; p++) out.push({ p, label: p === 0 ? "1" : `10${superscript(p)}` });
+        for (let p=a; p<=b; p++) {
+          if (p >= domain[0] - 1e-9 && p <= domain[1] + 1e-9) {
+            out.push({ p, label: p === 0 ? "1" : `10${superscript(p)}` });
+          }
+        }
       } else {
-        const step = niceStep((domain[1]-domain[0])/(count-1));
+        const step = customStep && customStep > 0 ? customStep : niceStep((domain[1]-domain[0])/(count-1));
         const start = Math.ceil(domain[0]/step)*step;
         for (let v=start; v<=domain[1]+step*.001; v+=step) out.push({ p:v, label:formatNumber(v) });
       }
@@ -848,20 +1133,20 @@
       svg.append(svgEl("text", {
         x: 600, y: 42, "text-anchor": "middle",
         fill: "#20262e", "font-size": "26", "font-weight": "800",
-        "font-family": "Arial, Microsoft YaHei, sans-serif"
+        "font-family": "Calibri, FangSong, 仿宋, sans-serif"
       }, text));
     }
-    function drawAxes({xDomain,yDomain,xTitle,yTitle,logX=false,logY=false,categories=null}) {
+    function drawAxes({xDomain,yDomain,xTitle,yTitle,logX=false,logY=false,categories=null,xStep=null,yStep=null}) {
       const box = { left: 128, right: 900, top: 86, bottom: categories ? 720 : 760 };
       svg.append(svgEl("rect",{x:box.left,y:box.top,width:box.right-box.left,height:box.bottom-box.top,class:"plot-frame"}));
       const sx = categories
         ? (v => box.left + (v/(Math.max(1,categories.length-1)))*(box.right-box.left))
         : scale(xDomain,[box.left,box.right]);
       const sy = scale(yDomain,[box.bottom,box.top]);
-      const xTicks = categories ? categories.map((label,i)=>({p:i,label})) : ticks(xDomain,logX);
+      const xTicks = categories ? categories.map((label,i)=>({p:i,label})) : ticks(xDomain,logX,6,xStep);
       xTicks.forEach(t => {
         const x=sx(t.p);
-        svg.append(svgEl("line",{x1:x,x2:x,y1:box.bottom,y2:box.bottom+9,class:"tick"}));
+        svg.append(svgEl("line",{x1:x,x2:x,y1:box.bottom,y2:box.bottom-9,class:"tick"}));
         if (categories) {
           svg.append(svgEl("text",{
             x:x-3,y:box.bottom+25,"text-anchor":"end",class:"tick-label",
@@ -871,9 +1156,9 @@
           svg.append(svgEl("text",{x,y:box.bottom+34,"text-anchor":"middle",class:"tick-label"},t.label));
         }
       });
-      ticks(yDomain,logY).forEach(t => {
+      ticks(yDomain,logY,6,yStep).forEach(t => {
         const y=sy(t.p);
-        svg.append(svgEl("line",{x1:box.left-9,x2:box.left,y1:y,y2:y,class:"tick"}));
+        svg.append(svgEl("line",{x1:box.left,x2:box.left+9,y1:y,y2:y,class:"tick"}));
         svg.append(svgEl("text",{x:box.left-16,y:y+7,"text-anchor":"end",class:"tick-label"},t.label));
       });
       svg.append(svgEl("text",{x:(box.left+box.right)/2,y:categories?850:838,"text-anchor":"middle",class:"axis-label"},xTitle));
@@ -883,16 +1168,69 @@
     function drawLegend(entries) {
       if (!$("showLegend").checked || !entries.length) return;
       const unique = [...new Map(entries.map(e=>[e.name,e])).values()];
-      const startX=930, startY=102, rowH=31, rowsPerColumn=25, colWidth=135;
+      const startX=0, startY=0, rowH=31, rowsPerColumn=25, colWidth=135;
+      const columns=Math.max(1,Math.ceil(Math.min(unique.length,50)/rowsPerColumn));
+      const rows=Math.min(rowsPerColumn,unique.length);
+      const width=columns*colWidth+12, height=Math.max(35,rows*rowH+10);
+      const group=svgEl("g",{
+        id:"legendGroup",
+        transform:`translate(${state.legend.x} ${state.legend.y}) scale(${state.legend.scale})`
+      });
+      const background=svgEl("rect",{
+        x:-8,y:-14,width,height,fill:"#ffffff","fill-opacity":"0.001",
+        stroke:"transparent","data-legend-drag":"true",cursor:"move","pointer-events":"all"
+      });
+      group.append(background);
       unique.slice(0,50).forEach((e,i) => {
         const column=Math.floor(i/rowsPerColumn), row=i%rowsPerColumn;
         const x=startX+column*colWidth, y=startY+row*rowH;
-        marker(svg,x+5,y,e.style,4.5);
+        marker(group,x+5,y,e.style,4.5);
         const parts=e.name.split(" / ");
         const lines=parts.length>2 ? [`${parts[0]} / ${parts[1]}`,parts.slice(2).join(" / ")] : [e.name];
-        lines.forEach((line,lineIndex)=>svg.append(svgEl("text",{x:x+16,y:y+lineIndex*13+4,class:"legend-text"},line)));
+        lines.forEach((line,lineIndex)=>group.append(svgEl("text",{x:x+16,y:y+lineIndex*13+4,class:"legend-text"},line)));
       });
-      if (unique.length>50) svg.append(svgEl("text",{x:startX,y:875,class:"legend-text"},`另有 ${unique.length-50} 类未展开`));
+      if (unique.length>50) group.append(svgEl("text",{x:startX,y:height-4,class:"legend-text"},`另有 ${unique.length-50} 类未展开`));
+      if ($("legendInteractive").checked) {
+        group.append(svgEl("rect",{
+          x:width-12,y:height-12,width:11,height:11,fill:"#176b63",
+          stroke:"#ffffff","stroke-width":"1","data-legend-resize":"true",cursor:"nwse-resize"
+        }));
+      }
+      svg.append(group);
+      enableLegendInteraction(group);
+    }
+    function svgPoint(event) {
+      const point=svg.createSVGPoint();
+      point.x=event.clientX; point.y=event.clientY;
+      return point.matrixTransform(svg.getScreenCTM().inverse());
+    }
+    function enableLegendInteraction(group) {
+      if (!$("legendInteractive").checked) return;
+      const dragTarget=group.querySelector("[data-legend-drag]");
+      const resizeTarget=group.querySelector("[data-legend-resize]");
+      let action=null,start=null,origin=null;
+      const begin=(event,type)=>{
+        event.preventDefault();
+        action=type;start=svgPoint(event);
+        origin={...state.legend};
+        svg.setPointerCapture(event.pointerId);
+      };
+      group.addEventListener("pointerdown",event=>{
+        begin(event,event.target?.hasAttribute("data-legend-resize")?"resize":"drag");
+      });
+      svg.onpointermove=event=>{
+        if(!action)return;
+        const current=svgPoint(event);
+        if(action==="drag"){
+          state.legend.x=origin.x+(current.x-start.x);
+          state.legend.y=origin.y+(current.y-start.y);
+        }else{
+          const delta=(current.x-start.x)/160;
+          state.legend.scale=Math.min(2.2,Math.max(.55,origin.scale+delta));
+        }
+        group.setAttribute("transform",`translate(${state.legend.x} ${state.legend.y}) scale(${state.legend.scale})`);
+      };
+      svg.onpointerup=()=>{action=null;};
     }
     function renderScatter() {
       const xName=$("xSelect").value, yName=$("ySelect").value;
@@ -905,8 +1243,13 @@
       clearChart();
       drawSvgTitle(title);
       if (!points.length) { $("chartNote").textContent="当前设置下没有可绘制的数据。"; return; }
-      const xd=extent(points.map(p=>p.x),logX), yd=extent(points.map(p=>p.y),logY);
-      const axes=drawAxes({xDomain:xd,yDomain:yd,xTitle,yTitle,logX,logY});
+      const autoXd=extent(points.map(p=>p.x),logX), autoYd=extent(points.map(p=>p.y),logY);
+      const xd=manualDomain(autoXd,"xMin","xMax",logX);
+      const yd=manualDomain(autoYd,"yMin","yMax",logY);
+      const axes=drawAxes({
+        xDomain:xd,yDomain:yd,xTitle,yTitle,logX,logY,
+        xStep:logX?null:inputNumber("xStep"),yStep:logY?null:inputNumber("yStep")
+      });
       const entries=[];
       points.forEach(p=>{
         const style=styleFor(p.row), x=axes.sx(logX?Math.log10(p.x):p.x), y=axes.sy(logY?Math.log10(p.y):p.y);
@@ -928,23 +1271,57 @@
         const field=$("meanField").value, groups=new Map();
         rows.forEach(row=>{const k=clean(row[field])||"未分类"; if(!groups.has(k))groups.set(k,[]);groups.get(k).push(row);});
         groups.forEach((group,name)=>{
-          const values=columns.map(c=>{const nums=group.map(r=>number(r[c])).filter(Number.isFinite);return nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:NaN;});
-          series.push({name,values,row:group[0]});
+          const stats=columns.map(c=>{
+            const nums=group.map(r=>number(r[c])).filter(Number.isFinite);
+            if(!nums.length)return {mean:NaN,sd:NaN};
+            const mean=nums.reduce((a,b)=>a+b,0)/nums.length;
+            const variance=nums.length>1?nums.reduce((sum,v)=>sum+(v-mean)**2,0)/(nums.length-1):0;
+            return {mean,sd:Math.sqrt(variance)};
+          });
+          series.push({name,values:stats.map(s=>s.mean),sd:stats.map(s=>s.sd),row:group[0]});
         });
       } else {
         series=rows.map(row=>({name:clean(row.Parent_Sample_ID)||clean(row.Record_ID)||"样品",values:columns.map(c=>number(row[c])),row}));
       }
-      const all=series.flatMap(s=>s.values).filter(v=>Number.isFinite(v)&&(!logY||v>0));
-      const yd=extent(all,logY);
+      const all=series.flatMap(s=>{
+        const values=[...s.values];
+        if($("lineMode").value==="mean"&&$("showSd").checked&&s.sd){
+          s.values.forEach((mean,i)=>{
+            if(Number.isFinite(mean)&&Number.isFinite(s.sd[i])){
+              values.push(mean+s.sd[i],mean-s.sd[i]);
+            }
+          });
+        }
+        return values;
+      }).filter(v=>Number.isFinite(v)&&(!logY||v>0));
+      const autoYd=extent(all,logY);
+      const yd=manualDomain(autoYd,"lineYMin","lineYMax",logY);
       const title=`${columns[0]} vs ${columns[columns.length-1]}`;
       $("chartTitle").textContent=title;
       drawSvgTitle(title);
       if (!yd) { $("chartNote").textContent="当前设置下没有可绘制的数据。"; return; }
-      const axes=drawAxes({xDomain:[0,columns.length-1],yDomain:yd,xTitle:"Element",yTitle:"Normalized value",logY,categories:columns});
+      const axes=drawAxes({
+        xDomain:[0,columns.length-1],yDomain:yd,xTitle:"Element",yTitle:"Normalized value",
+        logY,categories:columns,yStep:logY?null:inputNumber("lineYStep")
+      });
       const entries=[];
       series.forEach(s=>{
         const style=styleFor(s.row), pts=[];
         s.values.forEach((v,i)=>{if(Number.isFinite(v)&&(!logY||v>0))pts.push({x:axes.sx(i),y:axes.sy(logY?Math.log10(v):v),v,i});});
+        if($("lineMode").value==="mean"&&$("showSd").checked&&s.sd){
+          const upper=[],lower=[];
+          s.values.forEach((mean,i)=>{
+            const sd=s.sd[i];
+            if(!Number.isFinite(mean)||!Number.isFinite(sd))return;
+            const high=mean+sd,low=mean-sd;
+            if(logY&&low<=0)return;
+            upper.push(`${axes.sx(i)},${axes.sy(logY?Math.log10(high):high)}`);
+            lower.unshift(`${axes.sx(i)},${axes.sy(logY?Math.log10(low):low)}`);
+          });
+          if(upper.length>1)svg.append(svgEl("polygon",{
+            points:[...upper,...lower].join(" "),fill:style.color,"fill-opacity":"0.16",stroke:"none"
+          }));
+        }
         if(pts.length>1) svg.append(svgEl("polyline",{points:pts.map(p=>`${p.x},${p.y}`).join(" "),fill:"none",stroke:style.color,"stroke-width":$("lineMode").value==="mean"?3:1.5,"stroke-opacity":$("lineMode").value==="mean"?1:.68}));
         if($("showMarkers").checked) pts.forEach(p=>marker(svg,p.x,p.y,style,$("lineMode").value==="mean"?6:4,`<b>${s.name}</b><br>${columns[p.i]}: ${formatNumber(p.v)}<br>${legendName(s.row)}`));
         entries.push({name:$("lineMode").value==="mean"?s.name:legendName(s.row),style});
@@ -971,7 +1348,7 @@
     function serializedSvg() {
       const clone=svg.cloneNode(true);
       clone.setAttribute("xmlns",NS); clone.setAttribute("width","1200"); clone.setAttribute("height","900");
-      const style=svgEl("style",{},`.plot-frame{stroke:#000;stroke-width:1.4;fill:none}.tick{stroke:#000;stroke-width:1.1}.tick-label{fill:#252b32;font-size:20px;font-family:Arial,sans-serif}.axis-label{fill:#252b32;font-size:32px;font-weight:700;font-family:Arial,sans-serif}.legend-text{fill:#252b32;font-size:12px;font-family:Arial,sans-serif}`);
+      const style=svgEl("style",{},`.plot-frame{stroke:#000;stroke-width:1.4;fill:none}.tick{stroke:#000;stroke-width:1.1}.tick-label{fill:#252b32;font-size:20px;font-family:Calibri,FangSong,sans-serif}.axis-label{fill:#252b32;font-size:32px;font-weight:700;font-family:Calibri,FangSong,sans-serif}.legend-text{fill:#252b32;font-size:12px;font-family:Calibri,FangSong,sans-serif}`);
       clone.prepend(style);
       return new XMLSerializer().serializeToString(clone);
     }
@@ -1003,15 +1380,34 @@
       } catch(err) { showStatus(`读取失败：${err.message||err}`,true); }
     });
     $("sheetSelect").addEventListener("change",e=>parseSheet(e.target.value));
+    $("sidebarWidth").addEventListener("input",e=>{
+      document.documentElement.style.setProperty("--sidebar-width",`${e.target.value}px`);
+    });
     $("scatterTab").addEventListener("click",()=>switchMode("scatter"));
     $("lineTab").addEventListener("click",()=>switchMode("line"));
     $("lineMode").addEventListener("change",()=>{updateLineModeState();render();});
-    $("styleTarget").addEventListener("change",loadStyleEditor);
-    ["fillColor","borderColor","markerShape"].forEach(id=>$(id).addEventListener("input",updateStylePreview));
-    $("applyStyle").addEventListener("click",applyStyleOverride);
-    $("resetStyle").addEventListener("click",resetStyleOverride);
+    $("saveSeries").addEventListener("click",saveCurrentSeries);
+    $("savedSeries").addEventListener("change",e=>restoreSavedSeries(e.target.value));
+    $("deleteSeries").addEventListener("click",deleteSavedSeries);
+    $("resetLegendPosition").addEventListener("click",()=>{
+      state.legend={x:930,y:102,scale:1};
+      render();
+    });
+    $("legendInteractive").addEventListener("change",render);
+    $("legendEditorMode").addEventListener("change",renderLegendEditor);
+    $("exportStyles").addEventListener("click",exportStyleConfig);
+    $("importStyles").addEventListener("click",()=>$("styleFileInput").click());
+    $("styleFileInput").addEventListener("change",e=>{
+      const file=e.target.files[0];
+      if(file) importStyleConfig(file);
+      e.target.value="";
+    });
     $("reePreset").addEventListener("click",()=>{
       state.selectedElements=reeColumns(state.numericHeaders);
+      renderElementPicker();render();
+    });
+    $("normalizedPreset").addEventListener("click",()=>{
+      state.selectedElements=state.numericHeaders.filter(name=>/_N$/i.test(name));
       renderElementPicker();render();
     });
     $("selectAllElements").addEventListener("click",()=>{
@@ -1043,11 +1439,17 @@
       if(id==="xSelect")$("xTitle").value=$(id).value;else $("yTitle").value=$(id).value;render();
     }));
     ["xTitle","yTitle"].forEach(id=>$(id).addEventListener("input",render));
-    ["logX","logY","lineLogY","showMarkers","showLegend"].forEach(id=>$(id).addEventListener("change",render));
+    ["logX","logY","lineLogY","showMarkers","showLegend","showSd"].forEach(id=>$(id).addEventListener("change",render));
+    ["xMin","xMax","xStep","yMin","yMax","yStep","lineYMin","lineYMax","lineYStep"].forEach(id=>$(id).addEventListener("input",render));
     ["meanField","colorMode","shapeMode"].forEach(id=>$(id).addEventListener("change",render));
+    try {
+      const saved=JSON.parse(sessionStorage.getItem("elementPlotSavedSeries")||"{}");
+      state.savedSeries=new Map(Object.entries(saved).filter(([,columns])=>Array.isArray(columns)));
+    } catch {}
     setEnabled(false);
+    renderSavedSeries();
     if (new URLSearchParams(location.search).get("demo") === "1") {
-      fetch("demo.csv").then(r => r.arrayBuffer()).then(buffer => {
+      fetch("demo.csv?v=2").then(r => r.arrayBuffer()).then(buffer => {
         state.workbook = XLSX.read(buffer, { type: "array" });
         setOptions($("sheetSelect"), state.workbook.SheetNames);
         parseSheet(state.workbook.SheetNames[0]);
