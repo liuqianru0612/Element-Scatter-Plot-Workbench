@@ -9,6 +9,7 @@
 - 按 `Mission + Sub_Type` 分层配色
 - 使用 `Ti_Type` 区分点形状
 - 使用 `Ti → Mission → Sub` 三级树筛选，同时兼容旧字段名 `Ti_Type/Sub_Type`
+- 当同一个 `Ti + Mission + Sub` 对应多个 `Type` 时，工作台会自动在叶节点后补充 `Type`，避免图例或筛选把不同类型误合并
 - 折线图可任意勾选元素并调整横轴顺序
 - 新增任意两列的比值列
 - 绘制单样品元素配分图

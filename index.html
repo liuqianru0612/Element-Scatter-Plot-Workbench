@@ -538,12 +538,29 @@
       "type:Met Very low-Ti":{"color":"#5700ad","border":"#ffffff","shape":"diamond"},
       "type:Apollo 11 High-Ti-K":{"color":"#eb863e","border":"#c8ff00","shape":"circle"},
       "type:Apollo 15 KREEP":{"color":"#328250","border":"#fbff00","shape":"triangle"},
-      "leaf:KREEP\u0001Apollo 15\u0001Apollo 15 KREEP":{"color":"#2b7044","border":"#fff700","shape":"triangle"},
-      "leaf:Low-Ti\u0001Apollo 14\u0001Apollo 14 KREEP":{"color":"#516370","border":"#fbff00","shape":"square"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type A":{"color":"#bd5416","border":"#c8ff00","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B":{"color":"#df7430","border":"#ffffff","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B1":{"color":"#e88647","border":"#ffffff","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B2 / Apollo 11 High-Ti":{"color":"#ee9a61","border":"#ffffff","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B2 / Apollo 11 High-Ti-K":{"color":"#d96b24","border":"#c8ff00","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B3":{"color":"#f0aa78","border":"#ffffff","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 17\u0001A17 ilmenite basalt":{"color":"#d39d11","border":"#ffffff","shape":"circle"},
+      "leaf:High-Ti\u0001Apollo 17\u0001A17 olivine ilmenite basalt":{"color":"#e8bf41","border":"#ffffff","shape":"circle"},
+      "leaf:KREEP\u0001Apollo 15\u0001A15 KREEP":{"color":"#2b7044","border":"#fff700","shape":"triangle"},
+      "leaf:Low-Ti\u0001Apollo 14\u0001A14 KREEP":{"color":"#516370","border":"#fbff00","shape":"square"},
       "mission:Low-Ti\u0001CE-5":{"color":"#23e1de","border":"#ff0000","shape":"square"},
       "leaf:Low-Ti\u0001CE-5\u0001CE-5 Low-Ti":{"color":"#1a99a2","border":"#ff0000","shape":"square"},
       "mission:Low-Ti\u0001CE-6":{"color":"#2f58fe","border":"#ff00ea","shape":"square"},
       "leaf:Low-Ti\u0001CE-6\u0001CE-6 Low-Ti":{"color":"#24bdff","border":"#ff00dd","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 12\u0001A12 feldspathic basalt":{"color":"#23588c","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 12\u0001A12 ilmenite basalt":{"color":"#3478b8","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 12\u0001A12 olivine basalt":{"color":"#5793c6","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 12\u0001A12 pigeonite basalt":{"color":"#7baed3","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 15\u0001A15 olivine normative":{"color":"#2f7f4c","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 15\u0001A15 quartz normative":{"color":"#59ad74","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 14\u0001A14 VHK basalt":{"color":"#4f6675","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 14\u0001A14 group B":{"color":"#718a9b","border":"#ffffff","shape":"square"},
+      "leaf:Low-Ti\u0001Apollo 14\u0001A14 goup C":{"color":"#91a5b2","border":"#ffffff","shape":"square"},
       "leaf:Low-Ti\u0001Met\u0001Met Low-Ti":{"color":"#0044a3","border":"#ffffff","shape":"square"},
       "ti:Very low-Ti":{"color":"#4600c7","border":"#ffffff","shape":"diamond"},
       "mission:Very low-Ti\u0001CE-6":{"color":"#7757b8","border":"#fb00ff","shape":"diamond"},
@@ -554,7 +571,7 @@
     const state = {
       workbook: null, sheetName: "", headers: [], rows: [], mode: "scatter",
       numericHeaders: [], selectedElements: [], selectedLeafKeys: new Set(),
-      tree: new Map(), subtypeIndex: new Map(), typeIndex: new Map(),
+      tree: new Map(), subtypeIndex: new Map(), typeIndex: new Map(), ambiguousLeafs: new Set(),
       styleOverrides: new Map(Object.entries(defaultStyleOverrides)),
       savedSeries: new Map(), legend: { x: 930, y: 102, scale: 1 }
     };
@@ -619,7 +636,26 @@
     function subtype(row) { return categoryValue(row, "Sub") || "未细分"; }
     function tiType(row) { return categoryValue(row, "Ti") || "未分类"; }
     function typeName(row) { return clean(row.Type) || "未分类"; }
+    function leafBaseKey(row) {
+      return [tiType(row), baseMission(row), subtype(row)].join("\u0000");
+    }
+    function rebuildLeafAmbiguity() {
+      const grouped = new Map();
+      state.rows.forEach(row => {
+        const key = leafBaseKey(row);
+        if (!grouped.has(key)) grouped.set(key, new Set());
+        grouped.get(key).add(typeName(row));
+      });
+      state.ambiguousLeafs = new Set(
+        [...grouped.entries()].filter(([, types]) => types.size > 1).map(([key]) => key)
+      );
+    }
+    function displaySub(row) {
+      const sub = subtype(row);
+      return state.ambiguousLeafs.has(leafBaseKey(row)) ? `${sub} / ${typeName(row)}` : sub;
+    }
     function rebuildSubtypeIndex() {
+      rebuildLeafAmbiguity();
       state.subtypeIndex.clear();
       state.typeIndex.clear();
       const grouped = new Map();
@@ -627,7 +663,7 @@
       state.rows.forEach(row => {
         const m = baseMission(row);
         if (!grouped.has(m)) grouped.set(m, new Set());
-        grouped.get(m).add(subtype(row));
+        grouped.get(m).add(displaySub(row));
         if (!groupedTypes.has(m)) groupedTypes.set(m, new Set());
         groupedTypes.get(m).add(typeName(row));
       });
@@ -641,7 +677,7 @@
     function styleFor(row) {
       const mode = $("colorMode").value;
       const mission = baseMission(row);
-      const sub = subtype(row);
+      const sub = displaySub(row);
       const ti = tiType(row);
       let color;
       if (mode === "hierarchy") {
@@ -673,7 +709,7 @@
     function legendName(row) {
       const mode = $("colorMode").value;
       const shape = $("shapeMode").value;
-      const colorLabel = mode === "hierarchy" ? `${baseMission(row)} / ${subtype(row)}`
+      const colorLabel = mode === "hierarchy" ? `${baseMission(row)} / ${displaySub(row)}`
         : mode === "mission" ? baseMission(row)
         : mode === "ti" ? tiType(row) : typeName(row);
       return shape === "ti" && mode !== "ti" ? `${colorLabel} / ${tiType(row)}` : colorLabel;
@@ -819,12 +855,12 @@
       render();
     }
     function leafKey(row) {
-      return [tiType(row), baseMission(row), subtype(row)].join("\u0001");
+      return [tiType(row), baseMission(row), displaySub(row)].join("\u0001");
     }
     function buildClassificationTree() {
       state.tree = new Map();
       state.rows.forEach(row => {
-        const ti = tiType(row), mission = baseMission(row), sub = subtype(row);
+        const ti = tiType(row), mission = baseMission(row), sub = displaySub(row);
         if (!state.tree.has(ti)) state.tree.set(ti, new Map());
         const missions = state.tree.get(ti);
         if (!missions.has(mission)) missions.set(mission, new Map());
@@ -914,7 +950,7 @@
         if (scope === "type") return typeName(row) === raw;
         if (scope === "ti") return tiType(row) === parts[0];
         if (scope === "mission") return tiType(row) === parts[0] && baseMission(row) === parts[1];
-        return tiType(row) === parts[0] && baseMission(row) === parts[1] && subtype(row) === parts[2];
+        return tiType(row) === parts[0] && baseMission(row) === parts[1] && displaySub(row) === parts[2];
       });
     }
     function defaultStyleForTarget(target) {
@@ -922,7 +958,7 @@
       if (!row) return { color: "#777777", border: "#FFFFFF", shape: "circle" };
       const splitAt = target.indexOf(":");
       const scope = target.slice(0, splitAt);
-      const mission = baseMission(row), ti = tiType(row), sub = subtype(row);
+      const mission = baseMission(row), ti = tiType(row), sub = displaySub(row);
       let color;
       if (scope === "type") {
         const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
