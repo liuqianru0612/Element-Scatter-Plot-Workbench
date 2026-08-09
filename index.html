@@ -3,1494 +3,264 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>元素作图工作台</title>
+  <title>新版元素作图工作台</title>
+  <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    :root {
-      --bg: #eef1f4;
-      --panel: #ffffff;
-      --ink: #20262e;
-      --muted: #66717f;
-      --line: #cfd6de;
-      --accent: #176b63;
-      --accent-dark: #10544e;
-      --blue: #315f92;
-      --danger: #a43a32;
-      --sidebar-width: 350px;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font: 14px/1.45 Calibri, FangSong, "仿宋", sans-serif;
-    }
-    button, select, input { font: inherit; }
-    .app {
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-    }
-    aside {
-      background: var(--panel);
-      border-right: 1px solid var(--line);
-      padding: 18px;
-      overflow-y: auto;
-      max-height: 100vh;
-    }
-    main { min-width: 0; padding: 18px; }
-    h1 { margin: 0; font-size: 21px; }
-    h2 {
-      margin: 20px 0 8px;
-      font-size: 13px;
-      text-transform: uppercase;
-      color: #4f5b68;
-    }
-    .control-section {
-      margin-top: 10px;
-      border-top: 1px solid #e2e7ec;
-      padding-top: 4px;
-    }
-    .control-section > summary {
-      cursor: pointer;
-      list-style: none;
-      padding: 8px 0;
-      color: #4f5b68;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .control-section > summary::before { content: "▸"; display: inline-block; width: 16px; }
-    .control-section[open] > summary::before { content: "▾"; }
-    .control-section > summary::-webkit-details-marker { display: none; }
-    .muted { color: var(--muted); }
-    .tabs {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px;
-      margin: 16px 0 4px;
-      padding: 3px;
-      background: #e8ecef;
-      border: 1px solid #d9dfe5;
-      border-radius: 7px;
-    }
-    .tab {
-      min-height: 36px;
-      border: 0;
-      border-radius: 5px;
-      background: transparent;
-      color: #4b5563;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    .tab.active { background: #fff; color: var(--accent-dark); box-shadow: 0 1px 3px #00000018; }
-    label { display: block; margin: 10px 0 5px; font-weight: 650; }
-    select, input[type="text"], input[type="number"], input[type="file"] {
-      width: 100%;
-      min-height: 35px;
-      padding: 6px 8px;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      background: #fff;
-      color: var(--ink);
-    }
-    input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
-    input[type="color"] {
-      width: 100%;
-      height: 36px;
-      padding: 2px;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      background: #fff;
-    }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-    .check-row { display: flex; gap: 8px; align-items: center; margin-top: 9px; }
-    .check-row label { margin: 0; font-weight: 500; }
-    .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    button.command {
-      min-height: 37px;
-      border: 1px solid var(--accent);
-      border-radius: 5px;
-      background: var(--accent);
-      color: #fff;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    button.command:hover { background: var(--accent-dark); }
-    button.command.secondary { background: var(--blue); border-color: var(--blue); }
-    button:disabled, select:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
-    .panel[hidden] { display: none; }
-    .filter-list {
-      max-height: 280px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      padding: 6px;
-      background: #fafbfc;
-    }
-    .filter-item {
-      display: grid;
-      grid-template-columns: 18px minmax(0, 1fr) auto;
-      gap: 7px;
-      align-items: center;
-      padding: 4px;
-    }
-    .filter-item span:last-child { color: var(--muted); font-size: 12px; }
-    .tree-actions, .element-actions {
-      display: flex;
-      gap: 6px;
-      margin: 6px 0;
-    }
-    .mini-button {
-      min-height: 30px;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: #fff;
-      color: #334155;
-      cursor: pointer;
-      padding: 4px 8px;
-    }
-    .tree-node { margin: 2px 0; }
-    .tree-node summary {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 28px;
-      cursor: pointer;
-      list-style: none;
-      font-weight: 650;
-    }
-    .tree-node summary::-webkit-details-marker { display: none; }
-    .tree-node summary::before { content: "▸"; width: 12px; color: #6b7280; }
-    .tree-node[open] > summary::before { content: "▾"; }
-    .tree-children { margin-left: 19px; border-left: 1px solid #d9dee5; padding-left: 7px; }
-    .tree-leaf {
-      display: grid;
-      grid-template-columns: 18px minmax(0, 1fr) auto;
-      gap: 6px;
-      align-items: center;
-      min-height: 27px;
-      padding: 2px 3px;
-    }
-    .tree-count { color: var(--muted); font-size: 12px; }
-    .element-picker {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .element-list {
-      height: 190px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      background: #fafbfc;
-      padding: 5px;
-    }
-    .element-choice {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 27px;
-    }
-    .selected-element {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 26px 26px;
-      gap: 3px;
-      align-items: center;
-      min-height: 29px;
-      padding: 2px 3px;
-      border-bottom: 1px solid #e5e9ee;
-    }
-    .move-button {
-      width: 26px;
-      min-height: 24px;
-      padding: 0;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-    }
-    .style-editor {
-      margin-top: 10px;
-      padding-top: 9px;
-      border-top: 1px solid var(--line);
-    }
-    .legend-editor-table {
-      margin-top: 8px;
-      max-height: 430px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      background: #fff;
-    }
-    .legend-editor-head,
-    .legend-editor-row {
-      display: grid;
-      grid-template-columns: minmax(125px, 1fr) 44px 44px 78px 27px;
-      gap: 5px;
-      align-items: center;
-      min-height: 37px;
-      padding: 4px 5px;
-      border-bottom: 1px solid #e4e8ed;
-    }
-    .legend-editor-head {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      background: #eef2f5;
-      color: #4b5563;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .legend-editor-row:last-child { border-bottom: 0; }
-    .legend-editor-row.level-mission .legend-name { padding-left: 13px; }
-    .legend-editor-row.level-sub .legend-name { padding-left: 26px; }
-    .legend-name {
-      min-width: 0;
-      overflow-wrap: anywhere;
-      line-height: 1.3;
-    }
-    .legend-editor-row input[type="color"] {
-      height: 28px;
-      min-height: 28px;
-      padding: 1px;
-    }
-    .legend-editor-row select {
-      min-height: 29px;
-      padding: 3px;
-      font-size: 12px;
-    }
-    .reset-row {
-      width: 27px;
-      min-height: 27px;
-      padding: 0;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-    }
-    .style-file-input {
-      display: none;
-    }
-    .status {
-      margin-top: 10px;
-      padding: 8px;
-      border-radius: 5px;
-      background: #edf7f5;
-      color: #285e58;
-      display: none;
-    }
-    .status.error { display: block; background: #fff0ef; color: var(--danger); }
-    .chart-shell {
-      min-height: calc(100vh - 36px);
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      padding: 12px;
-      display: grid;
-      grid-template-rows: minmax(560px, 1fr) auto;
-      gap: 8px;
-    }
-    .chart-title {
-      display: none;
-    }
-    #chart { width: 100%; height: 100%; min-height: 560px; background: #fff; }
-    .chart-note { color: var(--muted); min-height: 20px; }
-    .axis, .plot-frame { stroke: #000; stroke-width: 1.4; fill: none; }
-    .tick { stroke: #000; stroke-width: 1.1; }
-    .tick-label { fill: #252b32; font-size: 20px; font-family: Calibri, FangSong, "仿宋", sans-serif; }
-    .axis-label { fill: #252b32; font-size: 32px; font-weight: 700; font-family: Calibri, FangSong, "仿宋", sans-serif; }
-    .legend-text { fill: #252b32; font-size: 12px; font-family: Calibri, FangSong, "仿宋", sans-serif; }
-    #tooltip {
-      position: fixed;
-      display: none;
-      pointer-events: none;
-      z-index: 10;
-      max-width: 320px;
-      padding: 8px 10px;
-      border-radius: 5px;
-      background: rgba(20, 25, 31, .94);
-      color: #fff;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    @media (max-width: 900px) {
-      .app { grid-template-columns: 1fr; }
-      aside { max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
-      .chart-shell { min-height: 720px; }
-    }
-  </style>
 </head>
 <body>
-  <div class="app">
-    <aside>
-      <h1>元素作图工作台</h1>
-      <div class="muted">数据仅在当前浏览器中处理，不上传到服务器。</div>
-      <label for="sidebarWidth">控制栏宽度</label>
-      <input id="sidebarWidth" type="range" min="300" max="620" value="350">
+  <header class="topbar">
+    <div class="brand">新版元素作图工作台</div>
+    <nav class="tabs" aria-label="主模块">
+      <button class="tab is-active" data-tab="data">数据</button>
+      <button class="tab" data-tab="workbench">作图工作台</button>
+      <button class="tab" data-tab="history">历史记录台</button>
+    </nav>
+    <div class="status" id="statusText">等待导入数据</div>
+  </header>
 
-      <details class="control-section" open>
-      <summary>数据</summary>
-      <label for="fileInput">Excel 或 CSV 文件</label>
-      <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.csv">
-      <label for="sheetSelect">工作表</label>
-      <select id="sheetSelect" disabled></select>
-      </details>
-
-      <details class="control-section">
-      <summary>计算列</summary>
-      <label for="newName">新列名称</label>
-      <input id="newName" type="text" placeholder="例如 Zr_Nb" disabled>
-      <div class="row">
-        <div><label for="numSelect">分子</label><select id="numSelect" disabled></select></div>
-        <div><label for="denSelect">分母</label><select id="denSelect" disabled></select></div>
-      </div>
-      <button id="addRatio" class="command secondary" type="button" disabled>新增比值列</button>
-      </details>
-
-      <div class="tabs" role="tablist">
-        <button id="scatterTab" class="tab active" type="button">散点图</button>
-        <button id="lineTab" class="tab" type="button">元素配分图</button>
-      </div>
-
-      <section id="scatterControls" class="panel">
-        <details class="control-section" open>
-        <summary>坐标</summary>
-        <div class="row">
-          <div><label for="xSelect">横坐标</label><select id="xSelect" disabled></select></div>
-          <div><label for="ySelect">纵坐标</label><select id="ySelect" disabled></select></div>
-        </div>
-        <div class="row">
-          <div><label for="xTitle">横轴标题</label><input id="xTitle" type="text" disabled></div>
-          <div><label for="yTitle">纵轴标题</label><input id="yTitle" type="text" disabled></div>
-        </div>
-        <div class="row">
-          <div class="check-row"><input id="logX" type="checkbox" disabled><label for="logX">横轴对数</label></div>
-          <div class="check-row"><input id="logY" type="checkbox" disabled><label for="logY">纵轴对数</label></div>
-        </div>
-        <label>横轴范围与刻度</label>
-        <div class="row">
-          <input id="xMin" type="number" step="any" placeholder="最小值" disabled>
-          <input id="xMax" type="number" step="any" placeholder="最大值" disabled>
-        </div>
-        <input id="xStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
-        <label>纵轴范围与刻度</label>
-        <div class="row">
-          <input id="yMin" type="number" step="any" placeholder="最小值" disabled>
-          <input id="yMax" type="number" step="any" placeholder="最大值" disabled>
-        </div>
-        <input id="yStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
-        </details>
-      </section>
-
-      <section id="lineControls" class="panel" hidden>
-        <details class="control-section" open>
-        <summary>元素序列与折线</summary>
-        <div class="element-actions">
-          <button id="reePreset" class="mini-button" type="button" disabled>稀土元素预设</button>
-          <button id="normalizedPreset" class="mini-button" type="button" disabled>全部 _N</button>
-          <button id="selectAllElements" class="mini-button" type="button" disabled>全选</button>
-          <button id="clearElements" class="mini-button" type="button" disabled>清空</button>
-        </div>
-        <label for="seriesName">临时保存当前元素系列</label>
-        <div class="row">
-          <input id="seriesName" type="text" placeholder="例如 REE 精简组合" disabled>
-          <button id="saveSeries" class="mini-button" type="button" disabled>保存</button>
-        </div>
-        <div class="row">
-          <select id="savedSeries" disabled></select>
-          <button id="deleteSeries" class="mini-button" type="button" disabled>删除</button>
-        </div>
-        <div class="element-picker">
-          <div>
-            <label>可选数值列</label>
-            <div id="availableElements" class="element-list"></div>
+  <main>
+    <section class="page is-active" id="page-data">
+      <div class="data-layout">
+        <aside class="panel data-tools">
+          <h2>导入数据</h2>
+          <label class="file-drop">
+            <input id="fileInput" type="file" accept=".xlsx,.xls,.csv">
+            <span>选择 Excel / CSV 文件</span>
+          </label>
+          <div class="field">
+            <label for="sheetSelect">Sheet</label>
+            <select id="sheetSelect"></select>
           </div>
-          <div>
-            <label>已选元素及顺序</label>
-            <div id="selectedElements" class="element-list"></div>
+          <div class="metric-grid">
+            <div><strong id="rowCount">0</strong><span>行</span></div>
+            <div><strong id="columnCount">0</strong><span>列</span></div>
+            <div><strong id="numericCount">0</strong><span>数值列</span></div>
           </div>
-        </div>
-        <label for="lineMode">线条模式</label>
-        <select id="lineMode" disabled>
-          <option value="individual">每个样品一条线</option>
-          <option value="mean">每个类别的平均值</option>
-        </select>
-        <label for="meanField">平均值分组字段</label>
-        <select id="meanField" disabled></select>
-        <div class="check-row"><input id="lineLogY" type="checkbox" checked disabled><label for="lineLogY">纵轴使用对数坐标</label></div>
-        <div class="check-row"><input id="showMarkers" type="checkbox" checked disabled><label for="showMarkers">显示数据点</label></div>
-        <div class="check-row"><input id="showSd" type="checkbox" checked disabled><label for="showSd">平均值显示 ±1 SD 阴影</label></div>
-        <label>纵轴范围与刻度</label>
-        <div class="row">
-          <input id="lineYMin" type="number" step="any" placeholder="最小值" disabled>
-          <input id="lineYMax" type="number" step="any" placeholder="最大值" disabled>
-        </div>
-        <input id="lineYStep" type="number" step="any" min="0" placeholder="主刻度间隔（自动）" disabled>
-        </details>
-      </section>
 
-      <details class="control-section" open>
-      <summary>分类与筛选</summary>
-      <label for="colorMode">颜色规则</label>
-      <select id="colorMode" disabled>
-        <option value="hierarchy">Mission 色系 + Sub 色阶</option>
-        <option value="mission">仅按 Mission</option>
-        <option value="ti">仅按 Ti</option>
-        <option value="type">按 Type</option>
-      </select>
-      <label for="shapeMode">点形状规则</label>
-      <select id="shapeMode" disabled>
-        <option value="ti">按 Ti</option>
-        <option value="uniform">全部圆形</option>
-      </select>
-      <label>层级筛选：Ti → Mission → Sub</label>
-      <div class="tree-actions">
-        <button id="selectAllTree" class="mini-button" type="button" disabled>全选</button>
-        <button id="clearTree" class="mini-button" type="button" disabled>清空</button>
-        <button id="expandTree" class="mini-button" type="button" disabled>展开</button>
-        <button id="collapseTree" class="mini-button" type="button" disabled>折叠</button>
+          <h2>新增比值列</h2>
+          <div class="field">
+            <label for="numeratorSelect">分子列</label>
+            <select id="numeratorSelect"></select>
+          </div>
+          <div class="field">
+            <label for="denominatorSelect">分母列</label>
+            <select id="denominatorSelect"></select>
+          </div>
+          <div class="field">
+            <label for="ratioName">新列名</label>
+            <input id="ratioName" type="text" placeholder="例如 La/Yb">
+          </div>
+          <button id="addRatioButton" class="primary">生成比值列</button>
+          <h2>已创建计算列</h2>
+          <div id="derivedColumnList" class="managed-list">
+            <div class="subtle-status">尚未创建比值列</div>
+          </div>
+        </aside>
+
+        <section class="table-wrap">
+          <div class="table-head">
+            <h1>表格预览</h1>
+            <span id="fileNameLabel">未选择文件</span>
+          </div>
+          <div id="dataPreview" class="data-preview empty">导入文件后显示前 200 行数据</div>
+        </section>
       </div>
-      <div id="filterList" class="filter-list"><div class="muted">请先导入文件</div></div>
-      </details>
+    </section>
 
-      <details class="control-section">
-      <summary>图例与样式</summary>
-      <div class="check-row"><input id="showLegend" type="checkbox" checked disabled><label for="showLegend">显示图例</label></div>
-      <div class="row">
-        <button id="resetLegendPosition" class="mini-button" type="button" disabled>重置图例位置</button>
-        <label class="check-row"><input id="legendInteractive" type="checkbox" checked disabled>允许拖动缩放</label>
+    <section class="page" id="page-workbench">
+      <div class="workbench-grid" id="workbenchGrid">
+        <aside class="panel side-panel left-panel">
+          <h2>数据选择</h2>
+          <div class="field">
+            <label for="plotType">图类型</label>
+            <select id="plotType">
+              <option value="scatter">散点图</option>
+              <option value="line">元素配分折线图</option>
+            </select>
+          </div>
+
+          <div id="scatterControls">
+            <div class="field">
+              <label for="xSelect">X 轴字段</label>
+              <select id="xSelect"></select>
+            </div>
+            <div class="field">
+              <label for="ySelect">Y 轴字段</label>
+              <select id="ySelect"></select>
+            </div>
+          </div>
+
+          <div id="lineControls" class="hidden">
+            <div class="toolbar">
+              <button id="reePreset" type="button">稀土序列</button>
+              <button id="normalizedPreset" type="button">所有 _N</button>
+            </div>
+            <div class="field">
+              <label for="elementSetSelect">元素组合</label>
+              <select id="elementSetSelect"></select>
+            </div>
+            <div class="toolbar compact">
+              <input id="elementSetName" type="text" placeholder="组合名称">
+              <button id="saveElementSetButton" type="button">保存组合</button>
+              <button id="loadElementSetButton" type="button">载入组合</button>
+              <button id="deleteElementSetButton" type="button">删除组合</button>
+            </div>
+            <div class="field">
+              <label for="lineMode">线条模式</label>
+              <select id="lineMode">
+                <option value="sample">每个样品一条线</option>
+                <option value="category">按当前分类平均</option>
+                <option value="field">按指定字段平均</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="lineGroupField">指定平均字段</label>
+              <select id="lineGroupField"></select>
+            </div>
+            <label class="check"><input id="showLinePoints" type="checkbox" checked> 显示数据点</label>
+            <label class="check"><input id="showSdBand" type="checkbox" checked> 平均线显示 ±1 SD</label>
+            <div class="element-list" id="elementList"></div>
+          </div>
+
+          <h2>分类与筛选</h2>
+          <div class="field">
+            <label for="categoryField">当前分类字段</label>
+            <select id="categoryField"></select>
+          </div>
+          <div class="toolbar compact">
+            <button id="selectAllCategoriesButton" type="button">全选</button>
+            <button id="selectNoneCategoriesButton" type="button">全不选</button>
+            <button id="invertCategoriesButton" type="button">反选</button>
+          </div>
+          <div id="categoryItems" class="category-list"></div>
+          <div class="field">
+            <label for="sampleSetName">新建样品集合</label>
+            <input id="sampleSetName" type="text" placeholder="集合名称">
+          </div>
+          <div class="field">
+            <label for="sampleSetMode">样品集合优先级</label>
+            <select id="sampleSetMode">
+              <option value="field">仅当前分类字段</option>
+              <option value="overlay">集合覆盖原分类</option>
+              <option value="field-sample">原分类 + 样品集合</option>
+            </select>
+          </div>
+          <button id="createSampleSetButton">创建当前筛选集合</button>
+          <div id="sampleSetList" class="sample-set-list"></div>
+        </aside>
+
+        <div class="resize-handle" data-resize="left" title="拖动调整左栏宽度"></div>
+
+        <section class="plot-stage">
+          <div class="plot-shell" id="plotShell">
+            <canvas id="plotCanvas" width="1200" height="900"></canvas>
+            <div id="htmlLegend" class="plot-legend"></div>
+            <div id="tooltip" class="tooltip hidden"></div>
+          </div>
+        </section>
+
+        <div class="resize-handle" data-resize="right" title="拖动调整右栏宽度"></div>
+
+        <aside class="panel side-panel right-panel">
+          <h2>坐标轴</h2>
+          <div class="field">
+            <label for="chartTitle">图表标题</label>
+            <input id="chartTitle" type="text">
+          </div>
+          <div class="axis-grid">
+            <div class="field"><label for="xTitle">X 标题</label><input id="xTitle" type="text"></div>
+            <div class="field"><label for="yTitle">Y 标题</label><input id="yTitle" type="text"></div>
+            <div class="field"><label for="xMin">X 最小</label><input id="xMin" type="number" step="any"></div>
+            <div class="field"><label for="xMax">X 最大</label><input id="xMax" type="number" step="any"></div>
+            <div class="field"><label for="xStep">X 主刻度</label><input id="xStep" type="number" step="any"></div>
+            <div class="field"><label for="yMin">Y 最小</label><input id="yMin" type="number" step="any"></div>
+            <div class="field"><label for="yMax">Y 最大</label><input id="yMax" type="number" step="any"></div>
+            <div class="field"><label for="yStep">Y 主刻度</label><input id="yStep" type="number" step="any"></div>
+          </div>
+          <label class="check"><input id="xLog" type="checkbox"> X 对数坐标</label>
+          <label class="check"><input id="yLog" type="checkbox"> Y 对数坐标</label>
+          <label class="check"><input id="xReverse" type="checkbox"> X 轴反向</label>
+          <label class="check"><input id="yReverse" type="checkbox"> Y 轴反向</label>
+          <label class="check"><input id="minorTicks" type="checkbox"> 显示细分刻度</label>
+          <button id="applyAxisButton" class="primary">应用坐标轴</button>
+
+          <h2>趋势线</h2>
+          <label class="check"><input id="trendlineVisible" type="checkbox"> 显示分组趋势线</label>
+          <div class="field">
+            <label for="trendlineMode">拟合方式</label>
+            <select id="trendlineMode">
+              <option value="linear">线性拟合</option>
+              <option value="axis">按当前坐标拟合</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="trendlineWidth">趋势线宽</label>
+            <input id="trendlineWidth" type="number" min="0.5" max="8" step="0.5" value="2">
+          </div>
+          <div class="field">
+            <label for="trendlineOpacity">趋势线透明度</label>
+            <input id="trendlineOpacity" type="number" min="0.05" max="1" step="0.05" value="0.85">
+          </div>
+          <div class="subtle-status">默认继承对应图例项，可在下方按分类覆盖。</div>
+          <div id="trendlineCategoryList" class="trendline-list"></div>
+
+          <h2>图例样式</h2>
+          <label class="check"><input id="legendVisible" type="checkbox" checked> 显示图例</label>
+          <div class="field">
+            <label for="markerSize">点大小</label>
+            <input id="markerSize" type="range" min="6" max="36" value="22" step="1">
+          </div>
+          <div class="field">
+            <label for="legendScale">图例缩放</label>
+            <input id="legendScale" type="range" min="0.7" max="1.6" value="1" step="0.05">
+          </div>
+          <div id="legendRows" class="legend-rows"></div>
+          <div id="legendEditor" class="legend-editor empty">选择一个分类项进行编辑</div>
+          <div class="legend-io">
+            <input id="legendImportInput" type="file" accept=".json,application/json" class="visually-hidden">
+            <div class="toolbar">
+              <button id="importLegendButton" type="button">导入图例设置</button>
+              <button id="exportLegendButton" type="button">导出图例设置</button>
+              <button id="applyReferenceLegendButton" type="button">应用参考图例</button>
+            </div>
+            <div id="legendImportStatus" class="subtle-status"></div>
+          </div>
+
+          <h2>导出与历史</h2>
+          <div class="toolbar">
+            <button id="exportPngButton">PNG</button>
+            <button id="exportSvgButton">SVG</button>
+            <button id="saveHistoryButton" class="primary">保存当前图件</button>
+          </div>
+        </aside>
       </div>
-      <div class="style-editor">
-        <label for="legendEditorMode">图例样式表</label>
-        <select id="legendEditorMode" disabled>
-          <option value="type">第一类：Type</option>
-          <option value="hierarchy">第二类：Ti → Mission → Sub</option>
-        </select>
-        <div id="legendEditorTable" class="legend-editor-table">
-          <div class="muted" style="padding:8px">请先导入文件</div>
-        </div>
-        <div class="button-row">
-          <button id="exportStyles" class="command" type="button" disabled>导出样式配置</button>
-          <button id="importStyles" class="command secondary" type="button" disabled>导入样式配置</button>
-        </div>
-        <input id="styleFileInput" class="style-file-input" type="file" accept=".json">
+    </section>
+
+    <section class="page" id="page-history">
+      <div class="history-layout" id="historyGrid">
+        <aside class="panel history-list-panel">
+          <div class="panel-head">
+            <h2>历史图件</h2>
+            <button id="clearHistoryButton">清空</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </aside>
+        <div class="resize-handle" data-resize="history" title="拖动调整列表宽度"></div>
+        <section class="history-preview">
+          <div id="historyPreview" class="history-preview-inner empty">暂无历史图件</div>
+          <div id="historyTooltip" class="tooltip hidden"></div>
+        </section>
       </div>
-      </details>
+    </section>
+  </main>
 
-      <details class="control-section" open>
-      <summary>导出图片</summary>
-      <div class="button-row">
-        <button id="downloadPng" class="command" type="button" disabled>导出 PNG</button>
-        <button id="downloadSvg" class="command secondary" type="button" disabled>导出 SVG</button>
-      </div>
-      <div id="status" class="status"></div>
-      </details>
-    </aside>
-
-    <main>
-      <div class="chart-shell">
-        <div id="chartTitle" class="chart-title">请导入表格</div>
-        <svg id="chart" viewBox="0 0 1200 900" role="img" aria-label="数据图表"></svg>
-        <div id="chartNote" class="chart-note"></div>
-      </div>
-    </main>
-  </div>
-  <div id="tooltip"></div>
-
-  <script>
-    const NS = "http://www.w3.org/2000/svg";
-    const categoryFieldAliases = {
-      Type: ["Type"],
-      Ti: ["Ti", "Ti_Type"],
-      Mission: ["Mission"],
-      Sub: ["Sub", "Sub_Type"]
-    };
-    const missionColors = {
-      "Apollo 11": "#E87524", "Apollo11": "#E87524",
-      "Apollo 17": "#E3B323", "A17": "#E3B323",
-      "Apollo 12": "#3478B8", "A12": "#3478B8",
-      "Apollo 15": "#3C9B5F", "A15": "#3C9B5F",
-      "Apollo 14": "#718A9B", "A14": "#718A9B",
-      "Apollo 16": "#A77A59", "A16": "#A77A59",
-      "CE-5": "#24A8E0", "CE-6": "#7757B8",
-      "Met": "#4B5563"
-    };
-    const tiColors = {
-      "High-Ti": "#E65D32",
-      "Low-Ti": "#258F87",
-      "Very low-Ti": "#7655B5",
-      "Very-Low-Ti": "#7655B5",
-      "KREEP": "#D3A322"
-    };
-    const tiShapes = {
-      "High-Ti": "circle",
-      "Low-Ti": "square",
-      "Very low-Ti": "diamond",
-      "Very-Low-Ti": "diamond",
-      "KREEP": "triangle"
-    };
-    const fallbackPalette = ["#4E79A7","#F28E2B","#59A14F","#E15759","#B07AA1","#76B7B2","#EDC948","#9C755F","#BAB0AC"];
-    const defaultStyleOverrides = {
-      "type:CE-5 Low-Ti":{"color":"#00e9fa","border":"#ff0000","shape":"square"},
-      "type:CE-6 Low-Ti":{"color":"#64499b","border":"#ee00ff","shape":"square"},
-      "type:CE-6 Very low-Ti":{"color":"#876bc1","border":"#fb00ff","shape":"diamond"},
-      "type:Met Low-Ti":{"color":"#003585","border":"#ffffff","shape":"square"},
-      "type:Met Very low-Ti":{"color":"#5700ad","border":"#ffffff","shape":"diamond"},
-      "type:Apollo 11 High-Ti-K":{"color":"#eb863e","border":"#c8ff00","shape":"circle"},
-      "type:Apollo 15 KREEP":{"color":"#328250","border":"#fbff00","shape":"triangle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type A":{"color":"#bd5416","border":"#c8ff00","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B":{"color":"#df7430","border":"#ffffff","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B1":{"color":"#e88647","border":"#ffffff","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B2 / Apollo 11 High-Ti":{"color":"#ee9a61","border":"#ffffff","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B2 / Apollo 11 High-Ti-K":{"color":"#d96b24","border":"#c8ff00","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 11\u0001A11 Type B3":{"color":"#f0aa78","border":"#ffffff","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 17\u0001A17 ilmenite basalt":{"color":"#d39d11","border":"#ffffff","shape":"circle"},
-      "leaf:High-Ti\u0001Apollo 17\u0001A17 olivine ilmenite basalt":{"color":"#e8bf41","border":"#ffffff","shape":"circle"},
-      "leaf:KREEP\u0001Apollo 15\u0001A15 KREEP":{"color":"#2b7044","border":"#fff700","shape":"triangle"},
-      "leaf:Low-Ti\u0001Apollo 14\u0001A14 KREEP":{"color":"#516370","border":"#fbff00","shape":"square"},
-      "mission:Low-Ti\u0001CE-5":{"color":"#23e1de","border":"#ff0000","shape":"square"},
-      "leaf:Low-Ti\u0001CE-5\u0001CE-5 Low-Ti":{"color":"#1a99a2","border":"#ff0000","shape":"square"},
-      "mission:Low-Ti\u0001CE-6":{"color":"#2f58fe","border":"#ff00ea","shape":"square"},
-      "leaf:Low-Ti\u0001CE-6\u0001CE-6 Low-Ti":{"color":"#24bdff","border":"#ff00dd","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 12\u0001A12 feldspathic basalt":{"color":"#23588c","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 12\u0001A12 ilmenite basalt":{"color":"#3478b8","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 12\u0001A12 olivine basalt":{"color":"#5793c6","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 12\u0001A12 pigeonite basalt":{"color":"#7baed3","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 15\u0001A15 olivine normative":{"color":"#2f7f4c","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 15\u0001A15 quartz normative":{"color":"#59ad74","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 14\u0001A14 VHK basalt":{"color":"#4f6675","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 14\u0001A14 group B":{"color":"#718a9b","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Apollo 14\u0001A14 goup C":{"color":"#91a5b2","border":"#ffffff","shape":"square"},
-      "leaf:Low-Ti\u0001Met\u0001Met Low-Ti":{"color":"#0044a3","border":"#ffffff","shape":"square"},
-      "ti:Very low-Ti":{"color":"#4600c7","border":"#ffffff","shape":"diamond"},
-      "mission:Very low-Ti\u0001CE-6":{"color":"#7757b8","border":"#fb00ff","shape":"diamond"},
-      "leaf:Very low-Ti\u0001CE-6\u0001CE-6 Very low-Ti":{"color":"#664b9e","border":"#ff00ea","shape":"diamond"},
-      "mission:Very low-Ti\u0001Met":{"color":"#2d00a8","border":"#ffffff","shape":"diamond"},
-      "leaf:Very low-Ti\u0001Met\u0001Met Very low-Ti":{"color":"#0006c2","border":"#ffffff","shape":"diamond"}
-    };
-    const state = {
-      workbook: null, sheetName: "", headers: [], rows: [], mode: "scatter",
-      numericHeaders: [], selectedElements: [], selectedLeafKeys: new Set(),
-      tree: new Map(), subtypeIndex: new Map(), typeIndex: new Map(), ambiguousLeafs: new Set(),
-      styleOverrides: new Map(Object.entries(defaultStyleOverrides)),
-      savedSeries: new Map(), legend: { x: 930, y: 102, scale: 1 }
-    };
-    const $ = id => document.getElementById(id);
-    const svg = $("chart");
-
-    function showStatus(text, error = false) {
-      const el = $("status");
-      el.textContent = text;
-      el.className = "status" + (error ? " error" : "");
-      el.style.display = text ? "block" : "none";
-    }
-    function svgEl(name, attrs = {}, text = "") {
-      const el = document.createElementNS(NS, name);
-      Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
-      if (text !== "") el.textContent = text;
-      return el;
-    }
-    function clean(value) { return value == null ? "" : String(value).trim(); }
-    function number(value) {
-      if (typeof value === "number" && Number.isFinite(value)) return value;
-      if (typeof value !== "string") return NaN;
-      const n = Number(value.replace(/,/g, "").trim());
-      return Number.isFinite(n) ? n : NaN;
-    }
-    function inputNumber(id) {
-      const value = Number($(id).value);
-      return $(id).value !== "" && Number.isFinite(value) ? value : null;
-    }
-    function manualDomain(autoDomain, minId, maxId, log) {
-      let min = inputNumber(minId), max = inputNumber(maxId);
-      if (log) {
-        min = min !== null && min > 0 ? Math.log10(min) : null;
-        max = max !== null && max > 0 ? Math.log10(max) : null;
-      }
-      const domain = [min ?? autoDomain[0], max ?? autoDomain[1]];
-      return domain[0] < domain[1] ? domain : autoDomain;
-    }
-    function safeName(name) {
-      return (name || "chart").replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ").trim();
-    }
-    function hash(text) {
-      let h = 2166136261;
-      for (const ch of String(text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
-      return h >>> 0;
-    }
-    function mix(hex, amount) {
-      const raw = hex.replace("#","");
-      const rgb = [0,2,4].map(i => parseInt(raw.slice(i,i+2),16));
-      const target = amount >= 0 ? 255 : 0;
-      const p = Math.abs(amount);
-      return "#" + rgb.map(v => Math.round(v + (target-v)*p).toString(16).padStart(2,"0")).join("");
-    }
-    function categoryFieldName(logicalName) {
-      return (categoryFieldAliases[logicalName] || []).find(name => state.headers.includes(name)) || "";
-    }
-    function categoryValue(row, logicalName) {
-      const field = categoryFieldName(logicalName);
-      return field ? clean(row[field]) : "";
-    }
-    function baseMission(row) { return categoryValue(row, "Mission") || "未分类"; }
-    function subtype(row) { return categoryValue(row, "Sub") || "未细分"; }
-    function tiType(row) { return categoryValue(row, "Ti") || "未分类"; }
-    function typeName(row) { return clean(row.Type) || "未分类"; }
-    function leafBaseKey(row) {
-      return [tiType(row), baseMission(row), subtype(row)].join("\u0000");
-    }
-    function rebuildLeafAmbiguity() {
-      const grouped = new Map();
-      state.rows.forEach(row => {
-        const key = leafBaseKey(row);
-        if (!grouped.has(key)) grouped.set(key, new Set());
-        grouped.get(key).add(typeName(row));
-      });
-      state.ambiguousLeafs = new Set(
-        [...grouped.entries()].filter(([, types]) => types.size > 1).map(([key]) => key)
-      );
-    }
-    function displaySub(row) {
-      const sub = subtype(row);
-      return state.ambiguousLeafs.has(leafBaseKey(row)) ? `${sub} / ${typeName(row)}` : sub;
-    }
-    function rebuildSubtypeIndex() {
-      rebuildLeafAmbiguity();
-      state.subtypeIndex.clear();
-      state.typeIndex.clear();
-      const grouped = new Map();
-      const groupedTypes = new Map();
-      state.rows.forEach(row => {
-        const m = baseMission(row);
-        if (!grouped.has(m)) grouped.set(m, new Set());
-        grouped.get(m).add(displaySub(row));
-        if (!groupedTypes.has(m)) groupedTypes.set(m, new Set());
-        groupedTypes.get(m).add(typeName(row));
-      });
-      grouped.forEach((set, mission) => {
-        [...set].sort().forEach((sub, i) => state.subtypeIndex.set(mission + "\u0000" + sub, { i, n: set.size }));
-      });
-      groupedTypes.forEach((set, mission) => {
-        [...set].sort().forEach((type, i) => state.typeIndex.set(mission + "\u0000" + type, { i, n: set.size }));
-      });
-    }
-    function styleFor(row) {
-      const mode = $("colorMode").value;
-      const mission = baseMission(row);
-      const sub = displaySub(row);
-      const ti = tiType(row);
-      let color;
-      if (mode === "hierarchy") {
-        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-        const meta = state.subtypeIndex.get(mission + "\u0000" + sub) || { i: 0, n: 1 };
-        const steps = [-0.28,-0.14,0,0.15,0.29,0.41];
-        color = mix(base, steps[meta.i % steps.length]);
-      } else if (mode === "mission") {
-        color = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-      } else if (mode === "ti") {
-        color = tiColors[ti] || fallbackPalette[hash(ti) % fallbackPalette.length];
-      } else {
-        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-        const meta = state.typeIndex.get(mission + "\u0000" + typeName(row)) || { i: 0, n: 1 };
-        const steps = meta.n <= 1 ? [0] : [-0.16, 0.12, -0.3, 0.27, 0.4];
-        color = mix(base, steps[meta.i % steps.length]);
-      }
-      const base = {
-        color,
-        border: "#FFFFFF",
-        shape: $("shapeMode").value === "ti" ? (tiShapes[ti] || "circle") : "circle"
-      };
-      const scopes = mode === "type"
-        ? [`type:${typeName(row)}`]
-        : [`ti:${ti}`, `mission:${ti}\u0001${mission}`, `leaf:${ti}\u0001${mission}\u0001${sub}`];
-      scopes.forEach(key => Object.assign(base, state.styleOverrides.get(key) || {}));
-      return base;
-    }
-    function legendName(row) {
-      const mode = $("colorMode").value;
-      const shape = $("shapeMode").value;
-      const colorLabel = mode === "hierarchy" ? `${baseMission(row)} / ${displaySub(row)}`
-        : mode === "mission" ? baseMission(row)
-        : mode === "ti" ? tiType(row) : typeName(row);
-      return shape === "ti" && mode !== "ti" ? `${colorLabel} / ${tiType(row)}` : colorLabel;
-    }
-    function setEnabled(enabled) {
-      document.querySelectorAll("aside select, aside input:not(#fileInput):not(#sidebarWidth), aside button.command").forEach(el => el.disabled = !enabled);
-      document.querySelectorAll("aside .mini-button").forEach(el => el.disabled = !enabled);
-      $("sheetSelect").disabled = !state.workbook;
-      updateLineModeState();
-    }
-    function setOptions(select, values, preferred = "") {
-      select.replaceChildren();
-      values.forEach(value => select.add(new Option(value, value)));
-      if (values.includes(preferred)) select.value = preferred;
-    }
-    function parseSheet(name) {
-      const sheet = state.workbook.Sheets[name];
-      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
-      if (!matrix.length) throw new Error("工作表为空。");
-      const headers = matrix[0].map((v,i) => clean(v) || `Column_${i+1}`);
-      state.headers = headers;
-      state.rows = matrix.slice(1).filter(row => row.some(v => v !== null && v !== "")).map(values => {
-        const obj = {};
-        headers.forEach((h,i) => obj[h] = values[i]);
-        return obj;
-      });
-      state.sheetName = name;
-      rebuildSubtypeIndex();
-      populateControls();
-      render();
-      showStatus(`已读取 ${state.rows.length} 行、${state.headers.length} 列。`);
-    }
-    function populateControls() {
-      const numericHeaders = state.headers.filter(h => state.rows.some(r => Number.isFinite(number(r[h]))));
-      state.numericHeaders = numericHeaders;
-      const xPreferred = numericHeaders.includes("Mg#") ? "Mg#" : numericHeaders[0];
-      const yPreferred = numericHeaders.includes("TiO2_wt%") ? "TiO2_wt%" : numericHeaders[1] || numericHeaders[0];
-      ["xSelect","ySelect","numSelect","denSelect"].forEach(id => setOptions($(id), numericHeaders));
-      $("xSelect").value = xPreferred || "";
-      $("ySelect").value = yPreferred || "";
-      $("xTitle").value = $("xSelect").value;
-      $("yTitle").value = $("ySelect").value;
-      state.selectedElements = reeColumns(numericHeaders);
-      if (state.selectedElements.length < 2) state.selectedElements = numericHeaders.slice(0, Math.min(8, numericHeaders.length));
-      renderElementPicker();
-      renderSavedSeries();
-      const presentFields = ["Type", "Ti", "Mission", "Sub"].map(categoryFieldName).filter(Boolean);
-      setOptions($("meanField"), presentFields.length ? presentFields : ["Type"]);
-      buildClassificationTree();
-      setEnabled(true);
-    }
-    function reeColumns(headers) {
-      const symbols = ["La","Ce","Pr","Nd","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu"];
-      const found = [];
-      symbols.forEach(symbol => {
-        const match = headers.find(h => new RegExp(`^${symbol}(?:_N)?$`, "i").test(h));
-        if (match) found.push(match);
-      });
-      return found;
-    }
-    function renderElementPicker() {
-      const available = $("availableElements");
-      const selected = $("selectedElements");
-      available.replaceChildren();
-      selected.replaceChildren();
-      state.numericHeaders.forEach(name => {
-        const label = document.createElement("label");
-        label.className = "element-choice";
-        const box = document.createElement("input");
-        box.type = "checkbox";
-        box.checked = state.selectedElements.includes(name);
-        box.addEventListener("change", () => {
-          if (box.checked && !state.selectedElements.includes(name)) state.selectedElements.push(name);
-          if (!box.checked) state.selectedElements = state.selectedElements.filter(v => v !== name);
-          renderElementPicker();
-          render();
-        });
-        label.append(box, document.createTextNode(name));
-        available.append(label);
-      });
-      state.selectedElements.forEach((name, index) => {
-        const row = document.createElement("div");
-        row.className = "selected-element";
-        const text = document.createElement("span");
-        text.textContent = `${index + 1}. ${name}`;
-        const up = document.createElement("button");
-        up.type = "button"; up.className = "move-button"; up.textContent = "↑"; up.title = "上移";
-        up.disabled = index === 0;
-        up.addEventListener("click", () => moveElement(index, -1));
-        const down = document.createElement("button");
-        down.type = "button"; down.className = "move-button"; down.textContent = "↓"; down.title = "下移";
-        down.disabled = index === state.selectedElements.length - 1;
-        down.addEventListener("click", () => moveElement(index, 1));
-        row.append(text, up, down);
-        selected.append(row);
-      });
-      if (!state.selectedElements.length) selected.append(Object.assign(document.createElement("div"), { className: "muted", textContent: "尚未选择元素" }));
-    }
-    function renderSavedSeries() {
-      const select = $("savedSeries");
-      select.replaceChildren();
-      if (!state.savedSeries.size) {
-        select.add(new Option("暂无已保存系列", ""));
-        select.disabled = true;
-        $("deleteSeries").disabled = true;
-        return;
-      }
-      select.disabled = false;
-      $("deleteSeries").disabled = false;
-      state.savedSeries.forEach((columns, name) => select.add(new Option(`${name}（${columns.length}）`, name)));
-    }
-    function saveCurrentSeries() {
-      const name = $("seriesName").value.trim();
-      if (!name) return showStatus("请输入系列名称。", true);
-      if (!state.selectedElements.length) return showStatus("当前没有可保存的元素。", true);
-      state.savedSeries.set(name, [...state.selectedElements]);
-      sessionStorage.setItem("elementPlotSavedSeries", JSON.stringify(Object.fromEntries(state.savedSeries)));
-      $("seriesName").value = "";
-      renderSavedSeries();
-      $("savedSeries").value = name;
-      showStatus(`已临时保存元素系列“${name}”。`);
-    }
-    function restoreSavedSeries(name) {
-      const columns = state.savedSeries.get(name);
-      if (!columns) return;
-      state.selectedElements = columns.filter(column => state.numericHeaders.includes(column));
-      renderElementPicker();
-      render();
-    }
-    function deleteSavedSeries() {
-      const name = $("savedSeries").value;
-      if (!name) return;
-      state.savedSeries.delete(name);
-      sessionStorage.setItem("elementPlotSavedSeries", JSON.stringify(Object.fromEntries(state.savedSeries)));
-      renderSavedSeries();
-      showStatus(`已删除临时系列“${name}”。`);
-    }
-    function moveElement(index, delta) {
-      const target = index + delta;
-      if (target < 0 || target >= state.selectedElements.length) return;
-      [state.selectedElements[index], state.selectedElements[target]] = [state.selectedElements[target], state.selectedElements[index]];
-      renderElementPicker();
-      render();
-    }
-    function leafKey(row) {
-      return [tiType(row), baseMission(row), displaySub(row)].join("\u0001");
-    }
-    function buildClassificationTree() {
-      state.tree = new Map();
-      state.rows.forEach(row => {
-        const ti = tiType(row), mission = baseMission(row), sub = displaySub(row);
-        if (!state.tree.has(ti)) state.tree.set(ti, new Map());
-        const missions = state.tree.get(ti);
-        if (!missions.has(mission)) missions.set(mission, new Map());
-        const subs = missions.get(mission);
-        subs.set(sub, (subs.get(sub) || 0) + 1);
-      });
-      state.selectedLeafKeys = new Set(state.rows.map(leafKey));
-      renderClassificationTree();
-      renderLegendEditor();
-    }
-    function descendantKeys(ti, mission = null) {
-      const keys = [];
-      const missions = state.tree.get(ti);
-      if (!missions) return keys;
-      missions.forEach((subs, missionName) => {
-        if (mission && mission !== missionName) return;
-        subs.forEach((count, sub) => keys.push([ti, missionName, sub].join("\u0001")));
-      });
-      return keys;
-    }
-    function checkboxState(box, keys) {
-      const selected = keys.filter(k => state.selectedLeafKeys.has(k)).length;
-      box.checked = selected === keys.length && keys.length > 0;
-      box.indeterminate = selected > 0 && selected < keys.length;
-    }
-    function setKeys(keys, checked) {
-      keys.forEach(k => checked ? state.selectedLeafKeys.add(k) : state.selectedLeafKeys.delete(k));
-      renderClassificationTree();
-      render();
-    }
-    function renderClassificationTree() {
-      const root = $("filterList");
-      root.replaceChildren();
-      [...state.tree.keys()].sort().forEach(ti => {
-        const tiDetails = document.createElement("details");
-        tiDetails.className = "tree-node";
-        const tiSummary = document.createElement("summary");
-        const tiBox = document.createElement("input");
-        tiBox.type = "checkbox";
-        const tiKeys = descendantKeys(ti);
-        checkboxState(tiBox, tiKeys);
-        tiBox.addEventListener("click", e => e.stopPropagation());
-        tiBox.addEventListener("change", () => setKeys(tiKeys, tiBox.checked));
-        tiSummary.append(tiBox, document.createTextNode(ti));
-        tiDetails.append(tiSummary);
-        const missionWrap = document.createElement("div");
-        missionWrap.className = "tree-children";
-        [...state.tree.get(ti).keys()].sort().forEach(mission => {
-          const missionDetails = document.createElement("details");
-          missionDetails.className = "tree-node";
-          const missionSummary = document.createElement("summary");
-          const missionBox = document.createElement("input");
-          missionBox.type = "checkbox";
-          const missionKeys = descendantKeys(ti, mission);
-          checkboxState(missionBox, missionKeys);
-          missionBox.addEventListener("click", e => e.stopPropagation());
-          missionBox.addEventListener("change", () => setKeys(missionKeys, missionBox.checked));
-          missionSummary.append(missionBox, document.createTextNode(mission));
-          missionDetails.append(missionSummary);
-          const subWrap = document.createElement("div");
-          subWrap.className = "tree-children";
-          state.tree.get(ti).get(mission).forEach((count, sub) => {
-            const key = [ti, mission, sub].join("\u0001");
-            const label = document.createElement("label");
-            label.className = "tree-leaf";
-            const box = document.createElement("input");
-            box.type = "checkbox"; box.checked = state.selectedLeafKeys.has(key);
-            box.addEventListener("change", () => setKeys([key], box.checked));
-            const countEl = document.createElement("span");
-            countEl.className = "tree-count"; countEl.textContent = count;
-            label.append(box, document.createTextNode(sub), countEl);
-            subWrap.append(label);
-          });
-          missionDetails.append(subWrap);
-          missionWrap.append(missionDetails);
-        });
-        tiDetails.append(missionWrap);
-        root.append(tiDetails);
-      });
-    }
-    function representativeRow(target) {
-      const splitAt = target.indexOf(":");
-      const scope = target.slice(0, splitAt);
-      const raw = target.slice(splitAt + 1);
-      const parts = raw.split("\u0001");
-      return state.rows.find(row => {
-        if (scope === "type") return typeName(row) === raw;
-        if (scope === "ti") return tiType(row) === parts[0];
-        if (scope === "mission") return tiType(row) === parts[0] && baseMission(row) === parts[1];
-        return tiType(row) === parts[0] && baseMission(row) === parts[1] && displaySub(row) === parts[2];
-      });
-    }
-    function defaultStyleForTarget(target) {
-      const row = representativeRow(target);
-      if (!row) return { color: "#777777", border: "#FFFFFF", shape: "circle" };
-      const splitAt = target.indexOf(":");
-      const scope = target.slice(0, splitAt);
-      const mission = baseMission(row), ti = tiType(row), sub = displaySub(row);
-      let color;
-      if (scope === "type") {
-        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-        const meta = state.typeIndex.get(mission + "\u0000" + typeName(row)) || { i: 0, n: 1 };
-        const steps = meta.n <= 1 ? [0] : [-0.16, 0.12, -0.3, 0.27, 0.4];
-        color = mix(base, steps[meta.i % steps.length]);
-      } else if (scope === "ti") {
-        color = tiColors[ti] || fallbackPalette[hash(ti) % fallbackPalette.length];
-      } else if (scope === "mission") {
-        color = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-      } else {
-        const base = missionColors[mission] || fallbackPalette[hash(mission) % fallbackPalette.length];
-        const meta = state.subtypeIndex.get(mission + "\u0000" + sub) || { i: 0, n: 1 };
-        const steps = [-0.28,-0.14,0,0.15,0.29,0.41];
-        color = mix(base, steps[meta.i % steps.length]);
-      }
-      return { color, border: "#FFFFFF", shape: tiShapes[ti] || "circle" };
-    }
-    function effectiveStyleForTarget(target) {
-      const style = defaultStyleForTarget(target);
-      const splitAt = target.indexOf(":");
-      const scope = target.slice(0, splitAt);
-      const raw = target.slice(splitAt + 1);
-      const parts = raw.split("\u0001");
-      const keys = scope === "type" ? [target]
-        : scope === "ti" ? [target]
-        : scope === "mission" ? [`ti:${parts[0]}`, target]
-        : [`ti:${parts[0]}`, `mission:${parts[0]}\u0001${parts[1]}`, target];
-      keys.forEach(key => Object.assign(style, state.styleOverrides.get(key) || {}));
-      return style;
-    }
-    function shapeOptions(selected) {
-      const select = document.createElement("select");
-      [["circle","圆形"],["square","方形"],["diamond","菱形"],["triangle","三角形"]].forEach(([value,label]) => {
-        const option = new Option(label, value);
-        option.selected = value === selected;
-        select.add(option);
-      });
-      return select;
-    }
-    function styleRow(target, label, level = "type") {
-      const style = effectiveStyleForTarget(target);
-      const row = document.createElement("div");
-      row.className = `legend-editor-row level-${level}`;
-      const name = document.createElement("div");
-      name.className = "legend-name";
-      name.textContent = label;
-      name.title = label;
-      const fill = document.createElement("input");
-      fill.type = "color"; fill.value = style.color;
-      fill.title = "填充色";
-      const border = document.createElement("input");
-      border.type = "color"; border.value = style.border;
-      border.title = "边框色";
-      const shape = shapeOptions(style.shape);
-      shape.title = "形状";
-      const reset = document.createElement("button");
-      reset.type = "button"; reset.className = "reset-row"; reset.textContent = "↺"; reset.title = "恢复该项默认样式";
-      const save = () => {
-        state.styleOverrides.set(target, { color: fill.value, border: border.value, shape: shape.value });
-        render();
-      };
-      fill.addEventListener("input", save);
-      border.addEventListener("input", save);
-      shape.addEventListener("change", save);
-      reset.addEventListener("click", () => {
-        if(defaultStyleOverrides[target]) state.styleOverrides.set(target,{...defaultStyleOverrides[target]});
-        else state.styleOverrides.delete(target);
-        renderLegendEditor();
-        render();
-      });
-      row.append(name, fill, border, shape, reset);
-      return row;
-    }
-    function renderLegendEditor() {
-      const table = $("legendEditorTable");
-      if (!table) return;
-      table.replaceChildren();
-      const head = document.createElement("div");
-      head.className = "legend-editor-head";
-      ["类别","填充","边框","形状","重置"].forEach(text => head.append(Object.assign(document.createElement("div"), { textContent: text })));
-      table.append(head);
-      if ($("legendEditorMode").value === "type") {
-        const types = [...new Set(state.rows.map(typeName))].sort();
-        types.forEach(type => table.append(styleRow(`type:${type}`, type, "type")));
-      } else {
-        [...state.tree.keys()].sort().forEach(ti => {
-          table.append(styleRow(`ti:${ti}`, `Ti：${ti}`, "ti"));
-          [...state.tree.get(ti).keys()].sort().forEach(mission => {
-            table.append(styleRow(`mission:${ti}\u0001${mission}`, `Mission：${mission}`, "mission"));
-            [...state.tree.get(ti).get(mission).keys()].sort().forEach(sub => {
-              table.append(styleRow(`leaf:${ti}\u0001${mission}\u0001${sub}`, `Sub：${sub}`, "sub"));
-            });
-          });
-        });
-      }
-    }
-    function exportStyleConfig() {
-      const payload = {
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        overrides: Object.fromEntries(state.styleOverrides)
-      };
-      downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), "legend-style-config.json");
-    }
-    async function importStyleConfig(file) {
-      try {
-        const payload = JSON.parse(await file.text());
-        const overrides = payload.overrides || payload;
-        const allowedShapes = new Set(["circle","square","diamond","triangle"]);
-        state.styleOverrides.clear();
-        Object.entries(overrides).forEach(([key, style]) => {
-          if (!style || typeof style !== "object") return;
-          state.styleOverrides.set(key, {
-            color: /^#[0-9a-f]{6}$/i.test(style.color || "") ? style.color : "#777777",
-            border: /^#[0-9a-f]{6}$/i.test(style.border || "") ? style.border : "#FFFFFF",
-            shape: allowedShapes.has(style.shape) ? style.shape : "circle"
-          });
-        });
-        renderLegendEditor();
-        render();
-        showStatus(`已导入 ${state.styleOverrides.size} 项图例样式。`);
-      } catch (error) {
-        showStatus(`样式配置读取失败：${error.message || error}`, true);
-      }
-    }
-    function filteredRows() {
-      return state.rows.filter(r => state.selectedLeafKeys.has(leafKey(r)));
-    }
-    function switchMode(mode) {
-      state.mode = mode;
-      $("scatterTab").classList.toggle("active", mode === "scatter");
-      $("lineTab").classList.toggle("active", mode === "line");
-      $("scatterControls").hidden = mode !== "scatter";
-      $("lineControls").hidden = mode !== "line";
-      render();
-    }
-    function updateLineModeState() {
-      $("meanField").disabled = !state.rows.length || $("lineMode").value !== "mean";
-    }
-    function extent(values, log) {
-      const valid = values.filter(v => Number.isFinite(v) && (!log || v > 0));
-      if (!valid.length) return null;
-      let min = Math.min(...valid), max = Math.max(...valid);
-      if (min === max) { min *= .9; max *= 1.1; if (min === max) { min -= 1; max += 1; } }
-      if (log) {
-        min = Math.log10(min); max = Math.log10(max);
-        const pad = (max-min)*.07 || .1; return [min-pad,max+pad];
-      }
-      const pad = (max-min)*.07 || 1; return [min-pad,max+pad];
-    }
-    function ticks(domain, log, count = 6, customStep = null) {
-      const out = [];
-      if (log) {
-        const a = Math.floor(domain[0]), b = Math.ceil(domain[1]);
-        for (let p=a; p<=b; p++) {
-          if (p >= domain[0] - 1e-9 && p <= domain[1] + 1e-9) {
-            out.push({ p, label: p === 0 ? "1" : `10${superscript(p)}` });
-          }
-        }
-      } else {
-        const step = customStep && customStep > 0 ? customStep : niceStep((domain[1]-domain[0])/(count-1));
-        const start = Math.ceil(domain[0]/step)*step;
-        for (let v=start; v<=domain[1]+step*.001; v+=step) out.push({ p:v, label:formatNumber(v) });
-      }
-      return out;
-    }
-    function niceStep(raw) {
-      const power = Math.pow(10, Math.floor(Math.log10(raw)));
-      const n = raw/power;
-      return (n<1.5?1:n<3?2:n<7?5:10)*power;
-    }
-    function superscript(n) {
-      const map = {"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
-      return String(n).split("").map(c=>map[c]||c).join("");
-    }
-    function formatNumber(v) {
-      const a = Math.abs(v);
-      if ((a >= 10000 || (a > 0 && a < .001))) return v.toExponential(1);
-      return Number(v.toPrecision(5)).toString();
-    }
-    function scale(domain, range) {
-      return value => range[0] + (value-domain[0])/(domain[1]-domain[0])*(range[1]-range[0]);
-    }
-    function marker(parent, x, y, style, size = 8, title = "") {
-      let el;
-      if (style.shape === "square") el = svgEl("rect",{x:x-size,y:y-size,width:size*2,height:size*2,rx:1});
-      else if (style.shape === "diamond") el = svgEl("polygon",{points:`${x},${y-size*1.25} ${x+size*1.25},${y} ${x},${y+size*1.25} ${x-size*1.25},${y}`});
-      else if (style.shape === "triangle") el = svgEl("polygon",{points:`${x},${y-size*1.35} ${x+size*1.2},${y+size} ${x-size*1.2},${y+size}`});
-      else el = svgEl("circle",{cx:x,cy:y,r:size});
-      el.setAttribute("fill",style.color);
-      el.setAttribute("stroke",style.border || "#FFFFFF");
-      el.setAttribute("stroke-width","1.2");
-      if (title) attachTooltip(el,title);
-      parent.append(el); return el;
-    }
-    function attachTooltip(el, html) {
-      el.addEventListener("mousemove", e => {
-        $("tooltip").innerHTML = html;
-        $("tooltip").style.display = "block";
-        $("tooltip").style.left = Math.min(window.innerWidth-330,e.clientX+14)+"px";
-        $("tooltip").style.top = (e.clientY+14)+"px";
-      });
-      el.addEventListener("mouseleave", () => $("tooltip").style.display = "none");
-    }
-    function clearChart() { svg.replaceChildren(); }
-    function drawSvgTitle(text) {
-      svg.append(svgEl("text", {
-        x: 600, y: 42, "text-anchor": "middle",
-        fill: "#20262e", "font-size": "26", "font-weight": "800",
-        "font-family": "Calibri, FangSong, 仿宋, sans-serif"
-      }, text));
-    }
-    function drawAxes({xDomain,yDomain,xTitle,yTitle,logX=false,logY=false,categories=null,xStep=null,yStep=null}) {
-      const box = { left: 128, right: 900, top: 86, bottom: categories ? 720 : 760 };
-      svg.append(svgEl("rect",{x:box.left,y:box.top,width:box.right-box.left,height:box.bottom-box.top,class:"plot-frame"}));
-      const sx = categories
-        ? (v => box.left + (v/(Math.max(1,categories.length-1)))*(box.right-box.left))
-        : scale(xDomain,[box.left,box.right]);
-      const sy = scale(yDomain,[box.bottom,box.top]);
-      const xTicks = categories ? categories.map((label,i)=>({p:i,label})) : ticks(xDomain,logX,6,xStep);
-      xTicks.forEach(t => {
-        const x=sx(t.p);
-        svg.append(svgEl("line",{x1:x,x2:x,y1:box.bottom,y2:box.bottom-9,class:"tick"}));
-        if (categories) {
-          svg.append(svgEl("text",{
-            x:x-3,y:box.bottom+25,"text-anchor":"end",class:"tick-label",
-            transform:`rotate(-38 ${x-3} ${box.bottom+25})`
-          },t.label));
-        } else {
-          svg.append(svgEl("text",{x,y:box.bottom+34,"text-anchor":"middle",class:"tick-label"},t.label));
-        }
-      });
-      ticks(yDomain,logY,6,yStep).forEach(t => {
-        const y=sy(t.p);
-        svg.append(svgEl("line",{x1:box.left,x2:box.left+9,y1:y,y2:y,class:"tick"}));
-        svg.append(svgEl("text",{x:box.left-16,y:y+7,"text-anchor":"end",class:"tick-label"},t.label));
-      });
-      svg.append(svgEl("text",{x:(box.left+box.right)/2,y:categories?850:838,"text-anchor":"middle",class:"axis-label"},xTitle));
-      svg.append(svgEl("text",{x:48,y:(box.top+box.bottom)/2,"text-anchor":"middle",class:"axis-label",transform:`rotate(-90 48 ${(box.top+box.bottom)/2})`},yTitle));
-      return {box,sx,sy};
-    }
-    function drawLegend(entries) {
-      if (!$("showLegend").checked || !entries.length) return;
-      const unique = [...new Map(entries.map(e=>[e.name,e])).values()];
-      const startX=0, startY=0, rowH=31, rowsPerColumn=25, colWidth=135;
-      const columns=Math.max(1,Math.ceil(Math.min(unique.length,50)/rowsPerColumn));
-      const rows=Math.min(rowsPerColumn,unique.length);
-      const width=columns*colWidth+12, height=Math.max(35,rows*rowH+10);
-      const group=svgEl("g",{
-        id:"legendGroup",
-        transform:`translate(${state.legend.x} ${state.legend.y}) scale(${state.legend.scale})`
-      });
-      const background=svgEl("rect",{
-        x:-8,y:-14,width,height,fill:"#ffffff","fill-opacity":"0.001",
-        stroke:"transparent","data-legend-drag":"true",cursor:"move","pointer-events":"all"
-      });
-      group.append(background);
-      unique.slice(0,50).forEach((e,i) => {
-        const column=Math.floor(i/rowsPerColumn), row=i%rowsPerColumn;
-        const x=startX+column*colWidth, y=startY+row*rowH;
-        marker(group,x+5,y,e.style,4.5);
-        const parts=e.name.split(" / ");
-        const lines=parts.length>2 ? [`${parts[0]} / ${parts[1]}`,parts.slice(2).join(" / ")] : [e.name];
-        lines.forEach((line,lineIndex)=>group.append(svgEl("text",{x:x+16,y:y+lineIndex*13+4,class:"legend-text"},line)));
-      });
-      if (unique.length>50) group.append(svgEl("text",{x:startX,y:height-4,class:"legend-text"},`另有 ${unique.length-50} 类未展开`));
-      if ($("legendInteractive").checked) {
-        group.append(svgEl("rect",{
-          x:width-12,y:height-12,width:11,height:11,fill:"#176b63",
-          stroke:"#ffffff","stroke-width":"1","data-legend-resize":"true",cursor:"nwse-resize"
-        }));
-      }
-      svg.append(group);
-      enableLegendInteraction(group);
-    }
-    function svgPoint(event) {
-      const point=svg.createSVGPoint();
-      point.x=event.clientX; point.y=event.clientY;
-      return point.matrixTransform(svg.getScreenCTM().inverse());
-    }
-    function enableLegendInteraction(group) {
-      if (!$("legendInteractive").checked) return;
-      const dragTarget=group.querySelector("[data-legend-drag]");
-      const resizeTarget=group.querySelector("[data-legend-resize]");
-      let action=null,start=null,origin=null;
-      const begin=(event,type)=>{
-        event.preventDefault();
-        action=type;start=svgPoint(event);
-        origin={...state.legend};
-        svg.setPointerCapture(event.pointerId);
-      };
-      group.addEventListener("pointerdown",event=>{
-        begin(event,event.target?.hasAttribute("data-legend-resize")?"resize":"drag");
-      });
-      svg.onpointermove=event=>{
-        if(!action)return;
-        const current=svgPoint(event);
-        if(action==="drag"){
-          state.legend.x=origin.x+(current.x-start.x);
-          state.legend.y=origin.y+(current.y-start.y);
-        }else{
-          const delta=(current.x-start.x)/160;
-          state.legend.scale=Math.min(2.2,Math.max(.55,origin.scale+delta));
-        }
-        group.setAttribute("transform",`translate(${state.legend.x} ${state.legend.y}) scale(${state.legend.scale})`);
-      };
-      svg.onpointerup=()=>{action=null;};
-    }
-    function renderScatter() {
-      const xName=$("xSelect").value, yName=$("ySelect").value;
-      const xTitle=$("xTitle").value.trim()||xName, yTitle=$("yTitle").value.trim()||yName;
-      const logX=$("logX").checked, logY=$("logY").checked;
-      const points=filteredRows().map(row=>({row,x:number(row[xName]),y:number(row[yName])}))
-        .filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&(!logX||p.x>0)&&(!logY||p.y>0));
-      const title=`${xTitle} vs ${yTitle}`;
-      $("chartTitle").textContent=title;
-      clearChart();
-      drawSvgTitle(title);
-      if (!points.length) { $("chartNote").textContent="当前设置下没有可绘制的数据。"; return; }
-      const autoXd=extent(points.map(p=>p.x),logX), autoYd=extent(points.map(p=>p.y),logY);
-      const xd=manualDomain(autoXd,"xMin","xMax",logX);
-      const yd=manualDomain(autoYd,"yMin","yMax",logY);
-      const axes=drawAxes({
-        xDomain:xd,yDomain:yd,xTitle,yTitle,logX,logY,
-        xStep:logX?null:inputNumber("xStep"),yStep:logY?null:inputNumber("yStep")
-      });
-      const entries=[];
-      points.forEach(p=>{
-        const style=styleFor(p.row), x=axes.sx(logX?Math.log10(p.x):p.x), y=axes.sy(logY?Math.log10(p.y):p.y);
-        const id=clean(p.row.Parent_Sample_ID)||clean(p.row.Record_ID)||"样品";
-        marker(svg,x,y,style,8,`<b>${id}</b><br>${xName}: ${formatNumber(p.x)}<br>${yName}: ${formatNumber(p.y)}<br>${legendName(p.row)}`);
-        entries.push({name:legendName(p.row),style});
-      });
-      drawLegend(entries);
-      $("chartNote").textContent=`已绘制 ${points.length} 个数据点。`;
-    }
-    function selectedSequence() { return [...state.selectedElements]; }
-    function renderLine() {
-      const columns=selectedSequence(), rows=filteredRows();
-      clearChart();
-      if (columns.length<2) { $("chartTitle").textContent="元素配分图"; $("chartNote").textContent="请至少选择两个元素。"; return; }
-      const logY=$("lineLogY").checked;
-      let series=[];
-      if ($("lineMode").value==="mean") {
-        const field=$("meanField").value, groups=new Map();
-        rows.forEach(row=>{const k=clean(row[field])||"未分类"; if(!groups.has(k))groups.set(k,[]);groups.get(k).push(row);});
-        groups.forEach((group,name)=>{
-          const stats=columns.map(c=>{
-            const nums=group.map(r=>number(r[c])).filter(Number.isFinite);
-            if(!nums.length)return {mean:NaN,sd:NaN};
-            const mean=nums.reduce((a,b)=>a+b,0)/nums.length;
-            const variance=nums.length>1?nums.reduce((sum,v)=>sum+(v-mean)**2,0)/(nums.length-1):0;
-            return {mean,sd:Math.sqrt(variance)};
-          });
-          series.push({name,values:stats.map(s=>s.mean),sd:stats.map(s=>s.sd),row:group[0]});
-        });
-      } else {
-        series=rows.map(row=>({name:clean(row.Parent_Sample_ID)||clean(row.Record_ID)||"样品",values:columns.map(c=>number(row[c])),row}));
-      }
-      const all=series.flatMap(s=>{
-        const values=[...s.values];
-        if($("lineMode").value==="mean"&&$("showSd").checked&&s.sd){
-          s.values.forEach((mean,i)=>{
-            if(Number.isFinite(mean)&&Number.isFinite(s.sd[i])){
-              values.push(mean+s.sd[i],mean-s.sd[i]);
-            }
-          });
-        }
-        return values;
-      }).filter(v=>Number.isFinite(v)&&(!logY||v>0));
-      const autoYd=extent(all,logY);
-      const yd=manualDomain(autoYd,"lineYMin","lineYMax",logY);
-      const title=`${columns[0]} vs ${columns[columns.length-1]}`;
-      $("chartTitle").textContent=title;
-      drawSvgTitle(title);
-      if (!yd) { $("chartNote").textContent="当前设置下没有可绘制的数据。"; return; }
-      const axes=drawAxes({
-        xDomain:[0,columns.length-1],yDomain:yd,xTitle:"Element",yTitle:"Normalized value",
-        logY,categories:columns,yStep:logY?null:inputNumber("lineYStep")
-      });
-      const entries=[];
-      series.forEach(s=>{
-        const style=styleFor(s.row), pts=[];
-        s.values.forEach((v,i)=>{if(Number.isFinite(v)&&(!logY||v>0))pts.push({x:axes.sx(i),y:axes.sy(logY?Math.log10(v):v),v,i});});
-        if($("lineMode").value==="mean"&&$("showSd").checked&&s.sd){
-          const upper=[],lower=[];
-          s.values.forEach((mean,i)=>{
-            const sd=s.sd[i];
-            if(!Number.isFinite(mean)||!Number.isFinite(sd))return;
-            const high=mean+sd,low=mean-sd;
-            if(logY&&low<=0)return;
-            upper.push(`${axes.sx(i)},${axes.sy(logY?Math.log10(high):high)}`);
-            lower.unshift(`${axes.sx(i)},${axes.sy(logY?Math.log10(low):low)}`);
-          });
-          if(upper.length>1)svg.append(svgEl("polygon",{
-            points:[...upper,...lower].join(" "),fill:style.color,"fill-opacity":"0.16",stroke:"none"
-          }));
-        }
-        if(pts.length>1) svg.append(svgEl("polyline",{points:pts.map(p=>`${p.x},${p.y}`).join(" "),fill:"none",stroke:style.color,"stroke-width":$("lineMode").value==="mean"?3:1.5,"stroke-opacity":$("lineMode").value==="mean"?1:.68}));
-        if($("showMarkers").checked) pts.forEach(p=>marker(svg,p.x,p.y,style,$("lineMode").value==="mean"?6:4,`<b>${s.name}</b><br>${columns[p.i]}: ${formatNumber(p.v)}<br>${legendName(s.row)}`));
-        entries.push({name:$("lineMode").value==="mean"?s.name:legendName(s.row),style});
-      });
-      drawLegend(entries);
-      $("chartNote").textContent=`已绘制 ${series.length} 条线，元素序列共 ${columns.length} 列。`;
-    }
-    function render() {
-      if (!state.rows.length) return;
-      try { state.mode==="scatter"?renderScatter():renderLine(); }
-      catch(err) { showStatus(err.message||String(err),true); }
-    }
-    function addRatio() {
-      const name=$("newName").value.trim(), num=$("numSelect").value, den=$("denSelect").value;
-      if(!name) return showStatus("请输入新列名称。",true);
-      if(state.headers.includes(name)) return showStatus("该列名已经存在。",true);
-      state.rows.forEach(row=>{const a=number(row[num]),b=number(row[den]);row[name]=Number.isFinite(a)&&Number.isFinite(b)&&b!==0?a/b:null;});
-      state.headers.push(name);
-      populateControls();
-      $("xSelect").value=name; $("xTitle").value=name;
-      showStatus(`已新增计算列 ${name} = ${num} / ${den}。`);
-      render();
-    }
-    function serializedSvg() {
-      const clone=svg.cloneNode(true);
-      clone.setAttribute("xmlns",NS); clone.setAttribute("width","1200"); clone.setAttribute("height","900");
-      const style=svgEl("style",{},`.plot-frame{stroke:#000;stroke-width:1.4;fill:none}.tick{stroke:#000;stroke-width:1.1}.tick-label{fill:#252b32;font-size:20px;font-family:Calibri,FangSong,sans-serif}.axis-label{fill:#252b32;font-size:32px;font-weight:700;font-family:Calibri,FangSong,sans-serif}.legend-text{fill:#252b32;font-size:12px;font-family:Calibri,FangSong,sans-serif}`);
-      clone.prepend(style);
-      return new XMLSerializer().serializeToString(clone);
-    }
-    function downloadBlob(blob, filename) {
-      const a=document.createElement("a"), url=URL.createObjectURL(blob);
-      a.href=url;a.download=safeName(filename);document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
-    function exportName(ext) { return `${safeName($("chartTitle").textContent)}.${ext}`; }
-    function downloadSvg() { downloadBlob(new Blob([serializedSvg()],{type:"image/svg+xml;charset=utf-8"}),exportName("svg")); }
-    function downloadPng() {
-      const image=new Image(), blob=new Blob([serializedSvg()],{type:"image/svg+xml;charset=utf-8"}), url=URL.createObjectURL(blob);
-      image.onload=()=>{
-        const canvas=document.createElement("canvas");canvas.width=2400;canvas.height=1800;
-        const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
-        URL.revokeObjectURL(url);canvas.toBlob(png=>downloadBlob(png,exportName("png")),"image/png");
-      };
-      image.onerror=()=>{URL.revokeObjectURL(url);showStatus("PNG 导出失败，请尝试 SVG。",true);};
-      image.src=url;
-    }
-
-    $("fileInput").addEventListener("change", async e=>{
-      const file=e.target.files[0]; if(!file)return;
-      try {
-        showStatus("正在读取文件...");
-        state.workbook=XLSX.read(await file.arrayBuffer(),{type:"array"});
-        setOptions($("sheetSelect"),state.workbook.SheetNames);
-        $("sheetSelect").disabled=false;
-        parseSheet(state.workbook.SheetNames[0]);
-      } catch(err) { showStatus(`读取失败：${err.message||err}`,true); }
-    });
-    $("sheetSelect").addEventListener("change",e=>parseSheet(e.target.value));
-    $("sidebarWidth").addEventListener("input",e=>{
-      document.documentElement.style.setProperty("--sidebar-width",`${e.target.value}px`);
-    });
-    $("scatterTab").addEventListener("click",()=>switchMode("scatter"));
-    $("lineTab").addEventListener("click",()=>switchMode("line"));
-    $("lineMode").addEventListener("change",()=>{updateLineModeState();render();});
-    $("saveSeries").addEventListener("click",saveCurrentSeries);
-    $("savedSeries").addEventListener("change",e=>restoreSavedSeries(e.target.value));
-    $("deleteSeries").addEventListener("click",deleteSavedSeries);
-    $("resetLegendPosition").addEventListener("click",()=>{
-      state.legend={x:930,y:102,scale:1};
-      render();
-    });
-    $("legendInteractive").addEventListener("change",render);
-    $("legendEditorMode").addEventListener("change",renderLegendEditor);
-    $("exportStyles").addEventListener("click",exportStyleConfig);
-    $("importStyles").addEventListener("click",()=>$("styleFileInput").click());
-    $("styleFileInput").addEventListener("change",e=>{
-      const file=e.target.files[0];
-      if(file) importStyleConfig(file);
-      e.target.value="";
-    });
-    $("reePreset").addEventListener("click",()=>{
-      state.selectedElements=reeColumns(state.numericHeaders);
-      renderElementPicker();render();
-    });
-    $("normalizedPreset").addEventListener("click",()=>{
-      state.selectedElements=state.numericHeaders.filter(name=>/_N$/i.test(name));
-      renderElementPicker();render();
-    });
-    $("selectAllElements").addEventListener("click",()=>{
-      state.selectedElements=[...state.numericHeaders];
-      renderElementPicker();render();
-    });
-    $("clearElements").addEventListener("click",()=>{
-      state.selectedElements=[];
-      renderElementPicker();render();
-    });
-    $("selectAllTree").addEventListener("click",()=>{
-      state.selectedLeafKeys=new Set(state.rows.map(leafKey));
-      renderClassificationTree();render();
-    });
-    $("clearTree").addEventListener("click",()=>{
-      state.selectedLeafKeys.clear();
-      renderClassificationTree();render();
-    });
-    $("expandTree").addEventListener("click",()=>{
-      $("filterList").querySelectorAll("details").forEach(el=>el.open=true);
-    });
-    $("collapseTree").addEventListener("click",()=>{
-      $("filterList").querySelectorAll("details").forEach(el=>el.open=false);
-    });
-    $("addRatio").addEventListener("click",addRatio);
-    $("downloadSvg").addEventListener("click",downloadSvg);
-    $("downloadPng").addEventListener("click",downloadPng);
-    ["xSelect","ySelect"].forEach(id=>$(id).addEventListener("change",()=>{
-      if(id==="xSelect")$("xTitle").value=$(id).value;else $("yTitle").value=$(id).value;render();
-    }));
-    ["xTitle","yTitle"].forEach(id=>$(id).addEventListener("input",render));
-    ["logX","logY","lineLogY","showMarkers","showLegend","showSd"].forEach(id=>$(id).addEventListener("change",render));
-    ["xMin","xMax","xStep","yMin","yMax","yStep","lineYMin","lineYMax","lineYStep"].forEach(id=>$(id).addEventListener("input",render));
-    ["meanField","colorMode","shapeMode"].forEach(id=>$(id).addEventListener("change",render));
-    try {
-      const saved=JSON.parse(sessionStorage.getItem("elementPlotSavedSeries")||"{}");
-      state.savedSeries=new Map(Object.entries(saved).filter(([,columns])=>Array.isArray(columns)));
-    } catch {}
-    setEnabled(false);
-    renderSavedSeries();
-    if (new URLSearchParams(location.search).get("demo") === "1") {
-      fetch("demo.csv?v=2").then(r => r.arrayBuffer()).then(buffer => {
-        state.workbook = XLSX.read(buffer, { type: "array" });
-        setOptions($("sheetSelect"), state.workbook.SheetNames);
-        parseSheet(state.workbook.SheetNames[0]);
-      }).catch(err => showStatus(`测试数据读取失败：${err.message || err}`, true));
-    }
-  </script>
+  <script src="data.js"></script>
+  <script src="legend-style.js"></script>
+  <script src="legend-reference.js"></script>
+  <script src="plot-scatter.js"></script>
+  <script src="plot-line.js"></script>
+  <script src="export-svg.js"></script>
+  <script src="history.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
