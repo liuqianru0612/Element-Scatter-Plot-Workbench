@@ -9,6 +9,7 @@
 3. 在“作图工作台”页选择图类型、X/Y 字段或元素序列。
 4. 设置分类字段、筛选分类项、调整图例样式。
 5. 导出 PNG/SVG，或保存当前图件到历史记录。
+https://liuqianru0612.github.io/Element-Scatter-Plot-Workbench/
 
 > Excel 导入依赖浏览器加载 SheetJS。如果离线环境无法加载在线脚本，可先使用 CSV，或将 SheetJS 浏览器包放到本地后修改 `index.html` 引用。
 
@@ -120,7 +121,3 @@ JSON 格式示例：
 ### 为什么图例 JSON 导入后没有变化？
 
 导入按分类名称匹配。请确认 JSON 中分类名和当前分类字段生成的图例项一致。名称匹配会忽略大小写、首尾空格和部分长短横线差异，但不会自动理解完全不同的命名体系。
-
-### 如何上传到 GitHub？
-
-可以直接上传整个 `Element-Plot-Workbench-New` 文件夹，或上传压缩包解压后的内容。若作为 GitHub Pages 使用，仓库根目录保留 `index.html` 即可。
