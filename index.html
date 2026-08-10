@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>新版元素作图工作台</title>
+  <title>元素作图工作台 V2</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">新版元素作图工作台</div>
+    <div class="brand">元素作图工作台 V2</div>
     <nav class="tabs" aria-label="主模块">
       <button class="tab is-active" data-tab="data">数据</button>
       <button class="tab" data-tab="workbench">作图工作台</button>
@@ -70,83 +70,107 @@
     <section class="page" id="page-workbench">
       <div class="workbench-grid" id="workbenchGrid">
         <aside class="panel side-panel left-panel">
-          <h2>数据选择</h2>
-          <div class="field">
-            <label for="plotType">图类型</label>
-            <select id="plotType">
-              <option value="scatter">散点图</option>
-              <option value="line">元素配分折线图</option>
-            </select>
-          </div>
+          <details class="control-section" open>
+            <summary>图形与字段</summary>
+            <div class="control-section-body">
+              <div class="field">
+                <label for="plotType">图类型</label>
+                <select id="plotType">
+                  <option value="scatter">散点图</option>
+                  <option value="line">元素配分折线图</option>
+                </select>
+              </div>
+              <div id="scatterControls">
+                <div class="field">
+                  <label for="xSelect">X 轴字段</label>
+                  <select id="xSelect"></select>
+                </div>
+                <div class="field">
+                  <label for="ySelect">Y 轴字段</label>
+                  <select id="ySelect"></select>
+                </div>
+              </div>
+            </div>
+          </details>
 
-          <div id="scatterControls">
-            <div class="field">
-              <label for="xSelect">X 轴字段</label>
-              <select id="xSelect"></select>
+          <details id="lineControls" class="control-section hidden" open>
+            <summary>元素序列与平均方式</summary>
+            <div class="control-section-body">
+              <div class="toolbar">
+                <button id="reePreset" type="button">稀土序列</button>
+                <button id="normalizedPreset" type="button">所有 _N</button>
+              </div>
+              <div class="field">
+                <label for="elementSetSelect">元素组合</label>
+                <select id="elementSetSelect"></select>
+              </div>
+              <div class="toolbar compact">
+                <input id="elementSetName" type="text" placeholder="组合名称">
+                <button id="saveElementSetButton" type="button">保存</button>
+                <button id="loadElementSetButton" type="button">载入</button>
+                <button id="deleteElementSetButton" type="button">删除</button>
+              </div>
+              <div class="element-set-io">
+                <input id="elementSetImportInput" type="file" accept=".json,application/json" class="visually-hidden">
+                <div class="toolbar compact">
+                  <button id="importElementSetsButton" type="button">导入组合</button>
+                  <button id="exportElementSetsButton" type="button">导出组合</button>
+                </div>
+                <div id="elementSetImportStatus" class="subtle-status"></div>
+              </div>
+              <div class="field">
+                <label for="lineMode">线条模式</label>
+                <select id="lineMode">
+                  <option value="sample">每个样品一条线</option>
+                  <option value="category">按当前分类平均</option>
+                  <option value="field">按指定字段平均</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="lineGroupField">指定平均字段</label>
+                <select id="lineGroupField"></select>
+              </div>
+              <label class="check"><input id="showLinePoints" type="checkbox" checked> 显示数据点</label>
+              <label class="check"><input id="showSdBand" type="checkbox" checked> 平均线显示 ±1 SD</label>
+              <div class="element-list" id="elementList"></div>
             </div>
-            <div class="field">
-              <label for="ySelect">Y 轴字段</label>
-              <select id="ySelect"></select>
-            </div>
-          </div>
+          </details>
 
-          <div id="lineControls" class="hidden">
-            <div class="toolbar">
-              <button id="reePreset" type="button">稀土序列</button>
-              <button id="normalizedPreset" type="button">所有 _N</button>
+          <details class="control-section" open>
+            <summary>分类与筛选</summary>
+            <div class="control-section-body">
+              <div class="field">
+                <label for="categoryField">当前分类字段</label>
+                <select id="categoryField"></select>
+              </div>
+              <div class="toolbar compact">
+                <button id="selectAllCategoriesButton" type="button">全选</button>
+                <button id="selectNoneCategoriesButton" type="button">全不选</button>
+                <button id="invertCategoriesButton" type="button">反选</button>
+              </div>
+              <div id="categoryItems" class="category-list"></div>
             </div>
-            <div class="field">
-              <label for="elementSetSelect">元素组合</label>
-              <select id="elementSetSelect"></select>
-            </div>
-            <div class="toolbar compact">
-              <input id="elementSetName" type="text" placeholder="组合名称">
-              <button id="saveElementSetButton" type="button">保存组合</button>
-              <button id="loadElementSetButton" type="button">载入组合</button>
-              <button id="deleteElementSetButton" type="button">删除组合</button>
-            </div>
-            <div class="field">
-              <label for="lineMode">线条模式</label>
-              <select id="lineMode">
-                <option value="sample">每个样品一条线</option>
-                <option value="category">按当前分类平均</option>
-                <option value="field">按指定字段平均</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="lineGroupField">指定平均字段</label>
-              <select id="lineGroupField"></select>
-            </div>
-            <label class="check"><input id="showLinePoints" type="checkbox" checked> 显示数据点</label>
-            <label class="check"><input id="showSdBand" type="checkbox" checked> 平均线显示 ±1 SD</label>
-            <div class="element-list" id="elementList"></div>
-          </div>
+          </details>
 
-          <h2>分类与筛选</h2>
-          <div class="field">
-            <label for="categoryField">当前分类字段</label>
-            <select id="categoryField"></select>
-          </div>
-          <div class="toolbar compact">
-            <button id="selectAllCategoriesButton" type="button">全选</button>
-            <button id="selectNoneCategoriesButton" type="button">全不选</button>
-            <button id="invertCategoriesButton" type="button">反选</button>
-          </div>
-          <div id="categoryItems" class="category-list"></div>
-          <div class="field">
-            <label for="sampleSetName">新建样品集合</label>
-            <input id="sampleSetName" type="text" placeholder="集合名称">
-          </div>
-          <div class="field">
-            <label for="sampleSetMode">样品集合优先级</label>
-            <select id="sampleSetMode">
-              <option value="field">仅当前分类字段</option>
-              <option value="overlay">集合覆盖原分类</option>
-              <option value="field-sample">原分类 + 样品集合</option>
-            </select>
-          </div>
-          <button id="createSampleSetButton">创建当前筛选集合</button>
-          <div id="sampleSetList" class="sample-set-list"></div>
+          <details class="control-section">
+            <summary>样品集合</summary>
+            <div class="control-section-body">
+              <div class="field">
+                <label for="sampleSetName">新建样品集合</label>
+                <input id="sampleSetName" type="text" placeholder="集合名称">
+              </div>
+              <div class="field">
+                <label for="sampleSetMode">样品集合优先级</label>
+                <select id="sampleSetMode">
+                  <option value="field">仅当前分类字段</option>
+                  <option value="overlay">集合覆盖原分类</option>
+                  <option value="field-sample">原分类 + 样品集合</option>
+                </select>
+              </div>
+              <button id="createSampleSetButton">创建当前筛选集合</button>
+              <div id="sampleSetList" class="sample-set-list"></div>
+            </div>
+          </details>
         </aside>
 
         <div class="resize-handle" data-resize="left" title="拖动调整左栏宽度"></div>
@@ -162,76 +186,94 @@
         <div class="resize-handle" data-resize="right" title="拖动调整右栏宽度"></div>
 
         <aside class="panel side-panel right-panel">
-          <h2>坐标轴</h2>
-          <div class="field">
-            <label for="chartTitle">图表标题</label>
-            <input id="chartTitle" type="text">
-          </div>
-          <div class="axis-grid">
-            <div class="field"><label for="xTitle">X 标题</label><input id="xTitle" type="text"></div>
-            <div class="field"><label for="yTitle">Y 标题</label><input id="yTitle" type="text"></div>
-            <div class="field"><label for="xMin">X 最小</label><input id="xMin" type="number" step="any"></div>
-            <div class="field"><label for="xMax">X 最大</label><input id="xMax" type="number" step="any"></div>
-            <div class="field"><label for="xStep">X 主刻度</label><input id="xStep" type="number" step="any"></div>
-            <div class="field"><label for="yMin">Y 最小</label><input id="yMin" type="number" step="any"></div>
-            <div class="field"><label for="yMax">Y 最大</label><input id="yMax" type="number" step="any"></div>
-            <div class="field"><label for="yStep">Y 主刻度</label><input id="yStep" type="number" step="any"></div>
-          </div>
-          <label class="check"><input id="xLog" type="checkbox"> X 对数坐标</label>
-          <label class="check"><input id="yLog" type="checkbox"> Y 对数坐标</label>
-          <label class="check"><input id="xReverse" type="checkbox"> X 轴反向</label>
-          <label class="check"><input id="yReverse" type="checkbox"> Y 轴反向</label>
-          <label class="check"><input id="minorTicks" type="checkbox"> 显示细分刻度</label>
-          <button id="applyAxisButton" class="primary">应用坐标轴</button>
-
-          <h2>趋势线</h2>
-          <label class="check"><input id="trendlineVisible" type="checkbox"> 显示分组趋势线</label>
-          <div class="field">
-            <label for="trendlineMode">拟合方式</label>
-            <select id="trendlineMode">
-              <option value="linear">线性拟合</option>
-              <option value="axis">按当前坐标拟合</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="trendlineWidth">趋势线宽</label>
-            <input id="trendlineWidth" type="number" min="0.5" max="8" step="0.5" value="2">
-          </div>
-          <div class="field">
-            <label for="trendlineOpacity">趋势线透明度</label>
-            <input id="trendlineOpacity" type="number" min="0.05" max="1" step="0.05" value="0.85">
-          </div>
-          <div class="subtle-status">默认继承对应图例项，可在下方按分类覆盖。</div>
-          <div id="trendlineCategoryList" class="trendline-list"></div>
-
-          <h2>图例样式</h2>
-          <label class="check"><input id="legendVisible" type="checkbox" checked> 显示图例</label>
-          <div class="field">
-            <label for="markerSize">点大小</label>
-            <input id="markerSize" type="range" min="6" max="36" value="22" step="1">
-          </div>
-          <div class="field">
-            <label for="legendScale">图例缩放</label>
-            <input id="legendScale" type="range" min="0.7" max="1.6" value="1" step="0.05">
-          </div>
-          <div id="legendRows" class="legend-rows"></div>
-          <div id="legendEditor" class="legend-editor empty">选择一个分类项进行编辑</div>
-          <div class="legend-io">
-            <input id="legendImportInput" type="file" accept=".json,application/json" class="visually-hidden">
-            <div class="toolbar">
-              <button id="importLegendButton" type="button">导入图例设置</button>
-              <button id="exportLegendButton" type="button">导出图例设置</button>
-              <button id="applyReferenceLegendButton" type="button">应用参考图例</button>
+          <details class="control-section" open>
+            <summary>图表标题与坐标轴</summary>
+            <div class="control-section-body">
+              <div class="field">
+                <label for="chartTitle">图表标题</label>
+                <input id="chartTitle" type="text" placeholder="留空则不显示">
+              </div>
+              <div class="axis-grid">
+                <div class="field"><label for="xTitle">X 标题</label><input id="xTitle" type="text" placeholder="留空则不显示"></div>
+                <div class="field"><label for="yTitle">Y 标题</label><input id="yTitle" type="text" placeholder="留空则不显示"></div>
+                <div class="field"><label for="xMin">X 最小</label><input id="xMin" type="number" step="any"></div>
+                <div class="field"><label for="xMax">X 最大</label><input id="xMax" type="number" step="any"></div>
+                <div class="field"><label for="xStep">X 主刻度</label><input id="xStep" type="number" step="any"></div>
+                <div class="field"><label for="yMin">Y 最小</label><input id="yMin" type="number" step="any"></div>
+                <div class="field"><label for="yMax">Y 最大</label><input id="yMax" type="number" step="any"></div>
+                <div class="field"><label for="yStep">Y 主刻度</label><input id="yStep" type="number" step="any"></div>
+              </div>
+              <label class="check"><input id="xLog" type="checkbox"> X 对数坐标</label>
+              <label class="check"><input id="yLog" type="checkbox"> Y 对数坐标</label>
+              <label class="check"><input id="xReverse" type="checkbox"> X 轴反向</label>
+              <label class="check"><input id="yReverse" type="checkbox"> Y 轴反向</label>
+              <label class="check"><input id="minorTicks" type="checkbox"> 显示细分刻度</label>
+              <button id="applyAxisButton" class="primary">应用坐标轴</button>
             </div>
-            <div id="legendImportStatus" class="subtle-status"></div>
-          </div>
+          </details>
 
-          <h2>导出与历史</h2>
-          <div class="toolbar">
-            <button id="exportPngButton">PNG</button>
-            <button id="exportSvgButton">SVG</button>
-            <button id="saveHistoryButton" class="primary">保存当前图件</button>
-          </div>
+          <details id="trendlineControls" class="control-section">
+            <summary>趋势线</summary>
+            <div class="control-section-body">
+              <label class="check"><input id="trendlineVisible" type="checkbox"> 显示分组趋势线</label>
+              <div class="field">
+                <label for="trendlineMode">拟合方式</label>
+                <select id="trendlineMode">
+                  <option value="linear">线性拟合</option>
+                  <option value="axis">按当前坐标拟合</option>
+                </select>
+              </div>
+              <div class="axis-grid">
+                <div class="field">
+                  <label for="trendlineWidth">默认线宽</label>
+                  <input id="trendlineWidth" type="number" min="0.5" max="8" step="0.5" value="2">
+                </div>
+                <div class="field">
+                  <label for="trendlineOpacity">默认透明度</label>
+                  <input id="trendlineOpacity" type="number" min="0.05" max="1" step="0.05" value="0.85">
+                </div>
+              </div>
+              <div class="subtle-status">默认继承对应图例项，也可按分类覆盖。</div>
+              <div id="trendlineCategoryList" class="trendline-list"></div>
+            </div>
+          </details>
+
+          <details class="control-section">
+            <summary>图例样式</summary>
+            <div class="control-section-body">
+              <label class="check"><input id="legendVisible" type="checkbox" checked> 显示图例</label>
+              <div class="field">
+                <label for="markerSize">点大小</label>
+                <input id="markerSize" type="range" min="6" max="36" value="22" step="1">
+              </div>
+              <div class="field">
+                <label for="legendScale">图例缩放</label>
+                <input id="legendScale" type="range" min="0.7" max="1.6" value="1" step="0.05">
+              </div>
+              <div id="legendRows" class="legend-rows"></div>
+              <div id="legendEditor" class="legend-editor empty">选择一个分类项进行编辑</div>
+              <div class="legend-io">
+                <input id="legendImportInput" type="file" accept=".json,application/json" class="visually-hidden">
+                <div class="toolbar">
+                  <button id="importLegendButton" type="button">导入图例设置</button>
+                  <button id="exportLegendButton" type="button">导出图例设置</button>
+                  <button id="applyReferenceLegendButton" type="button">应用参考图例</button>
+                </div>
+                <div id="legendImportStatus" class="subtle-status"></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="control-section" open>
+            <summary>导出与历史</summary>
+            <div class="control-section-body">
+              <div class="toolbar">
+                <button id="exportPngButton">PNG</button>
+                <button id="exportSvgButton">SVG</button>
+                <button id="saveHistoryButton" class="primary">保存当前图件</button>
+              </div>
+            </div>
+          </details>
         </aside>
       </div>
     </section>
@@ -257,6 +299,7 @@
   <script src="data.js"></script>
   <script src="legend-style.js"></script>
   <script src="legend-reference.js"></script>
+  <script src="plot-core.js"></script>
   <script src="plot-scatter.js"></script>
   <script src="plot-line.js"></script>
   <script src="export-svg.js"></script>

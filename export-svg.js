@@ -1,26 +1,24 @@
 (function () {
   const ExportSvg = {
     generate(state, metrics) {
-      const title = escapeXml(state.title || `${state.xTitle || state.xColumn || "X"} vs ${state.yTitle || state.yColumn || "Y"}`);
-      const p = metrics.plot;
+      const plot = metrics.plot;
       const chunks = [
         `<svg xmlns="http://www.w3.org/2000/svg" width="${metrics.width}" height="${metrics.height}" viewBox="0 0 ${metrics.width} ${metrics.height}">`,
         `<rect width="100%" height="100%" fill="#ffffff"/>`,
-        `<g id="title"><text x="${metrics.width / 2}" y="52" text-anchor="middle" font-family="Calibri,FangSong" font-size="32" font-weight="700">${title}</text></g>`,
-        `<g id="axes"><rect x="${p.left}" y="${p.top}" width="${p.right - p.left}" height="${p.bottom - p.top}" fill="none" stroke="#000" stroke-width="2"/></g>`,
+        `<defs><clipPath id="plot-clip"><rect x="${plot.left}" y="${plot.top}" width="${plot.right - plot.left}" height="${plot.bottom - plot.top}"/></clipPath></defs>`,
+        titleSvg(state, metrics),
+        `<g id="axes"><rect x="${plot.left}" y="${plot.top}" width="${plot.right - plot.left}" height="${plot.bottom - plot.top}" fill="none" stroke="#000" stroke-width="2"/></g>`,
         tickSvg(state, metrics),
-        axisTitleSvg(state, metrics)
+        axisTitleSvg(state, metrics),
+        state.plotType === "line" ? lineDataSvg(state, metrics) : scatterDataSvg(state, metrics),
+        legendSvg(state, metrics),
+        `</svg>`
       ];
-      if (state.plotType === "line") chunks.push(lineDataSvg(state, metrics));
-      else chunks.push(scatterDataSvg(state, metrics));
-      chunks.push(legendSvg(state, metrics));
-      chunks.push(`</svg>`);
       return chunks.join("\n");
     },
 
     downloadSvg(state, metrics) {
-      const svg = this.generate(state, metrics);
-      downloadBlob(svg, `${fileBase(state)}.svg`, "image/svg+xml;charset=utf-8");
+      downloadBlob(this.generate(state, metrics), `${fileBase(state)}.svg`, "image/svg+xml;charset=utf-8");
     },
 
     downloadPng(canvas, state) {
@@ -28,11 +26,17 @@
     }
   };
 
+  function titleSvg(state, metrics) {
+    const title = PlotCore.displayText(state.title);
+    if (!title) return `<g id="title"></g>`;
+    return `<g id="title"><text x="${metrics.width / 2}" y="52" text-anchor="middle" font-family="Calibri,FangSong" font-size="32" font-weight="700">${escapeXml(title)}</text></g>`;
+  }
+
   function scatterDataSvg(state, metrics) {
     const model = state.lastModel;
     if (!model || !model.ranges) return `<g id="scatter-data"></g>`;
-    const p = metrics.plot;
-    const grouped = PlotMath.groupBy(state.filteredRows, (row) => DataModule.categoryValue(row, state.categoryField, state.sampleSets, state.sampleSetMode));
+    const plot = metrics.plot;
+    const grouped = PlotCore.groupBy(state.filteredRows, (row) => DataModule.categoryValue(row, state.categoryField, state.sampleSets, state.sampleSetMode));
     const parts = [`<g id="scatter-data">`];
     Object.entries(grouped).forEach(([category, rows], index) => {
       const style = state.styles[category] || LegendStyle.defaultStyle(category, index);
@@ -42,11 +46,11 @@
         if (trend && trend.line) parts.push(trendlineSvg(trend.line, trend.style || style, state, metrics));
       }
       rows.forEach((row) => {
-        const xv = toNumber(row[state.xColumn]);
-        const yv = toNumber(row[state.yColumn]);
-        if (!PlotMath.insideDomain(xv, model.ranges.x, state.axes.xLog) || !PlotMath.insideDomain(yv, model.ranges.y, state.axes.yLog)) return;
-        const x = PlotMath.scaleValue(xv, model.ranges.x, p.left, p.right, state.axes.xLog, state.axes.xReverse);
-        const y = PlotMath.scaleValue(yv, model.ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
+        const xValue = toNumber(row[state.xColumn]);
+        const yValue = toNumber(row[state.yColumn]);
+        if (!PlotCore.insideDomain(xValue, model.ranges.x, state.axes.xLog) || !PlotCore.insideDomain(yValue, model.ranges.y, state.axes.yLog)) return;
+        const x = PlotCore.scaleValue(xValue, model.ranges.x, plot.left, plot.right, state.axes.xLog, state.axes.xReverse);
+        const y = PlotCore.scaleValue(yValue, model.ranges.y, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
         parts.push(LegendStyle.markerSvg(round(x), round(y), state.markerSize, style));
       });
       parts.push(`</g>`);
@@ -56,42 +60,40 @@
   }
 
   function trendlineSvg(line, style, state, metrics) {
-    const p = metrics.plot;
+    const plot = metrics.plot;
     const ranges = state.lastModel.ranges;
-    const x1 = PlotMath.scaleValue(line.x1, ranges.x, p.left, p.right, state.axes.xLog, state.axes.xReverse);
-    const y1 = PlotMath.scaleValue(line.y1, ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-    const x2 = PlotMath.scaleValue(line.x2, ranges.x, p.left, p.right, state.axes.xLog, state.axes.xReverse);
-    const y2 = PlotMath.scaleValue(line.y2, ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
+    const x1 = PlotCore.scaleValue(line.x1, ranges.x, plot.left, plot.right, state.axes.xLog, state.axes.xReverse);
+    const y1 = PlotCore.scaleValue(line.y1, ranges.y, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
+    const x2 = PlotCore.scaleValue(line.x2, ranges.x, plot.left, plot.right, state.axes.xLog, state.axes.xReverse);
+    const y2 = PlotCore.scaleValue(line.y2, ranges.y, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
     const dash = LegendStyle.dashArray(style.lineType).join(" ");
-    const width = style.width || state.trendlines.width || 2;
-    const opacity = style.opacity || state.trendlines.opacity || 0.85;
+    const width = style.width ?? state.trendlines.width ?? 2;
+    const opacity = style.opacity ?? state.trendlines.opacity ?? 0.85;
     const color = style.color || style.fill || "#111827";
-    return `<line x1="${round(x1)}" y1="${round(y1)}" x2="${round(x2)}" y2="${round(y2)}" stroke="${escapeXml(color)}" stroke-width="${width}" stroke-dasharray="${dash}" opacity="${opacity}"/>`;
+    return `<line x1="${round(x1)}" y1="${round(y1)}" x2="${round(x2)}" y2="${round(y2)}" stroke="${escapeXml(color)}" stroke-width="${width}" stroke-dasharray="${dash}" opacity="${opacity}" clip-path="url(#plot-clip)"/>`;
   }
 
   function lineDataSvg(state, metrics) {
     const model = state.lastModel;
     if (!model || !model.lineSeries || !model.ranges) return `<g id="line-data"></g>`;
-    const p = metrics.plot;
+    const plot = metrics.plot;
     const xRange = model.ranges.x;
     const yRange = model.ranges.y;
     const parts = [`<g id="line-data">`];
     model.lineSeries.forEach((series, index) => {
       const style = state.styles[series.category] || LegendStyle.defaultStyle(series.category, index);
-      const d = series.values.map((value, i) => {
-        if (!PlotMath.insideDomain(value, yRange, state.axes.yLog)) return "";
-        const x = PlotMath.scaleValue(i, xRange, p.left, p.right, false, state.axes.xReverse);
-        const y = PlotMath.scaleValue(value, yRange, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-        return `${i === 0 ? "M" : "L"}${round(x)},${round(y)}`;
-      }).join(" ");
       const dash = LegendStyle.dashArray(style.lineType).join(" ");
       parts.push(`<g id="line-${escapeId(series.name)}" data-name="${escapeXml(series.name)}">`);
-      parts.push(`<path d="${d}" fill="none" stroke="${escapeXml(style.fill)}" stroke-width="${style.lineWidth}" stroke-dasharray="${dash}" opacity="${style.opacity}"/>`);
+      if (series.sd && state.showSdBand) {
+        parts.push(sdBandSvg(series, state, metrics, style));
+      }
+      const path = linePath(series.values, state, metrics, xRange, yRange);
+      parts.push(`<path d="${path}" fill="none" stroke="${escapeXml(style.fill)}" stroke-width="${style.lineWidth}" stroke-dasharray="${dash}" opacity="${style.opacity}" clip-path="url(#plot-clip)"/>`);
       if (state.showLinePoints) {
-        series.values.forEach((value, i) => {
-          if (!PlotMath.insideDomain(value, yRange, state.axes.yLog)) return;
-          const x = PlotMath.scaleValue(i, xRange, p.left, p.right, false, state.axes.xReverse);
-          const y = PlotMath.scaleValue(value, yRange, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
+        series.values.forEach((value, elementIndex) => {
+          if (!PlotCore.insideDomain(value, yRange, state.axes.yLog)) return;
+          const x = PlotCore.scaleValue(elementIndex, xRange, plot.left, plot.right, false, state.axes.xReverse);
+          const y = PlotCore.scaleValue(value, yRange, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
           parts.push(LegendStyle.markerSvg(round(x), round(y), state.markerSize * 0.9, style));
         });
       }
@@ -101,11 +103,43 @@
     return parts.join("\n");
   }
 
-  function legendSvg(state) {
+  function linePath(values, state, metrics, xRange, yRange) {
+    let started = false;
+    return values.map((value, index) => {
+      if (!PlotCore.insideDomain(value, yRange, state.axes.yLog)) {
+        started = false;
+        return "";
+      }
+      const x = PlotCore.scaleValue(index, xRange, metrics.plot.left, metrics.plot.right, false, state.axes.xReverse);
+      const y = PlotCore.scaleValue(value, yRange, metrics.plot.bottom, metrics.plot.top, state.axes.yLog, state.axes.yReverse);
+      const command = started ? "L" : "M";
+      started = true;
+      return `${command}${round(x)},${round(y)}`;
+    }).filter(Boolean).join(" ");
+  }
+
+  function sdBandSvg(series, state, metrics, style) {
+    const xRange = state.lastModel.ranges.x;
+    const yRange = state.lastModel.ranges.y;
+    const segments = LinePlot.bandSegments(series, yRange, state.axes.yLog);
+    if (!segments.length) return "";
+    return segments.map((segment, segmentIndex) => {
+      const upper = segment.map((point) => mapBandPoint(point.index, point.upper, state, metrics, xRange, yRange));
+      const lower = [...segment].reverse().map((point) => mapBandPoint(point.index, point.lower, state, metrics, xRange, yRange));
+      return `<polygon id="sd-band-${escapeId(series.name)}-${segmentIndex + 1}" points="${[...upper, ...lower].join(" ")}" fill="${escapeXml(style.fill)}" opacity="0.14" clip-path="url(#plot-clip)"/>`;
+    }).join("\n");
+  }
+
+  function mapBandPoint(index, value, state, metrics, xRange, yRange) {
+    const x = PlotCore.scaleValue(index, xRange, metrics.plot.left, metrics.plot.right, false, state.axes.xReverse);
+    const y = PlotCore.scaleValue(value, yRange, metrics.plot.bottom, metrics.plot.top, state.axes.yLog, state.axes.yReverse);
+    return `${round(x)},${round(y)}`;
+  }
+
+  function legendSvg(state, metrics) {
     if (!state.legendVisible) return `<g id="legend"></g>`;
-    const categories = state.visibleCategories;
-    const parts = [`<g id="legend" transform="translate(900 95) scale(${state.legendScale})">`];
-    categories.forEach((category, index) => {
+    const parts = [`<g id="legend" transform="translate(${metrics.legend.x} ${metrics.legend.y}) scale(${state.legendScale})">`];
+    state.visibleCategories.forEach((category, index) => {
       const y = index * 24;
       const style = state.styles[category] || LegendStyle.defaultStyle(category, index);
       parts.push(`<g id="legend-item-${escapeId(category)}" transform="translate(0 ${y})">`);
@@ -120,64 +154,69 @@
   function tickSvg(state, metrics) {
     const model = state.lastModel;
     if (!model || !model.ranges) return `<g id="ticks"></g>`;
-    const p = metrics.plot;
+    const plot = metrics.plot;
     const parts = [`<g id="ticks" font-family="Calibri,FangSong" font-size="20" fill="#111827" stroke="#000">`];
     if (state.plotType === "line") {
-      const yTicks = PlotMath.makeTicks(model.ranges.y.min, model.ranges.y.max, state.axes.yStep, state.axes.yLog);
-      if (state.axes.minorTicks) {
-        PlotMath.makeMinorTicks(model.ranges.y, yTicks, state.axes.yLog).forEach((tick) => {
-          const y = PlotMath.scaleValue(tick, model.ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-          parts.push(`<line x1="${p.left}" y1="${round(y)}" x2="${p.left + 5}" y2="${round(y)}" stroke="#444"/>`);
-        });
-      }
-      yTicks.forEach((tick) => {
-        const y = PlotMath.scaleValue(tick, model.ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-        parts.push(`<g><line x1="${p.left}" y1="${round(y)}" x2="${p.left + 10}" y2="${round(y)}"/><text x="${p.left - 10}" y="${round(y + 6)}" text-anchor="end" stroke="none">${escapeXml(PlotMath.formatTick(tick))}</text></g>`);
-      });
-      state.selectedElements.forEach((el, i) => {
-        const x = PlotMath.scaleValue(i, model.ranges.x, p.left, p.right, false, state.axes.xReverse);
-        parts.push(`<g><line x1="${round(x)}" y1="${p.bottom}" x2="${round(x)}" y2="${p.bottom - 10}"/><text x="${round(x)}" y="${p.bottom + 34}" text-anchor="middle" stroke="none">${escapeXml(el)}</text></g>`);
+      const yTicks = PlotCore.buildAxisTicks(model.ranges.y, state.axes.yStep, state.axes.yLog, state.axes.minorTicks);
+      appendYTicks(parts, yTicks, model.ranges.y, state, plot);
+      state.selectedElements.forEach((element, index) => {
+        const x = PlotCore.scaleValue(index, model.ranges.x, plot.left, plot.right, false, state.axes.xReverse);
+        const layout = metrics.elementLabels;
+        const transform = layout.angle ? ` transform="rotate(${layout.angle} ${round(x)} ${layout.y})"` : "";
+        const anchor = layout.angle ? "end" : "middle";
+        parts.push(`<g><line x1="${round(x)}" y1="${plot.bottom}" x2="${round(x)}" y2="${plot.bottom - 10}"/><text x="${round(x)}" y="${layout.y}" text-anchor="${anchor}" dominant-baseline="${layout.angle ? "middle" : "hanging"}" stroke="none"${transform}>${escapeXml(element)}</text></g>`);
       });
     } else {
-      const xTicks = PlotMath.makeTicks(model.ranges.x.min, model.ranges.x.max, state.axes.xStep, state.axes.xLog);
-      const yTicks = PlotMath.makeTicks(model.ranges.y.min, model.ranges.y.max, state.axes.yStep, state.axes.yLog);
+      const xTicks = PlotCore.buildAxisTicks(model.ranges.x, state.axes.xStep, state.axes.xLog, state.axes.minorTicks);
+      const yTicks = PlotCore.buildAxisTicks(model.ranges.y, state.axes.yStep, state.axes.yLog, state.axes.minorTicks);
       if (state.axes.minorTicks) {
-        PlotMath.makeMinorTicks(model.ranges.x, xTicks, state.axes.xLog).forEach((tick) => {
-          const x = PlotMath.scaleValue(tick, model.ranges.x, p.left, p.right, state.axes.xLog, state.axes.xReverse);
-          parts.push(`<line x1="${round(x)}" y1="${p.bottom}" x2="${round(x)}" y2="${p.bottom - 5}" stroke="#444"/>`);
-        });
-        PlotMath.makeMinorTicks(model.ranges.y, yTicks, state.axes.yLog).forEach((tick) => {
-          const y = PlotMath.scaleValue(tick, model.ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-          parts.push(`<line x1="${p.left}" y1="${round(y)}" x2="${p.left + 5}" y2="${round(y)}" stroke="#444"/>`);
+        xTicks.minor.forEach((tick) => {
+          const x = PlotCore.scaleValue(tick, model.ranges.x, plot.left, plot.right, state.axes.xLog, state.axes.xReverse);
+          parts.push(`<line x1="${round(x)}" y1="${plot.bottom}" x2="${round(x)}" y2="${plot.bottom - 5}" stroke="#444"/>`);
         });
       }
-      xTicks.forEach((tick) => {
-        const x = PlotMath.scaleValue(tick, model.ranges.x, p.left, p.right, state.axes.xLog, state.axes.xReverse);
-        parts.push(`<g><line x1="${round(x)}" y1="${p.bottom}" x2="${round(x)}" y2="${p.bottom - 10}"/><text x="${round(x)}" y="${p.bottom + 34}" text-anchor="middle" stroke="none">${escapeXml(PlotMath.formatTick(tick))}</text></g>`);
+      xTicks.major.forEach((tick) => {
+        const x = PlotCore.scaleValue(tick, model.ranges.x, plot.left, plot.right, state.axes.xLog, state.axes.xReverse);
+        parts.push(`<g><line x1="${round(x)}" y1="${plot.bottom}" x2="${round(x)}" y2="${plot.bottom - 10}"/><text x="${round(x)}" y="${plot.bottom + 34}" text-anchor="middle" stroke="none">${escapeXml(PlotCore.formatTick(tick))}</text></g>`);
       });
-      yTicks.forEach((tick) => {
-        const y = PlotMath.scaleValue(tick, model.ranges.y, p.bottom, p.top, state.axes.yLog, state.axes.yReverse);
-        parts.push(`<g><line x1="${p.left}" y1="${round(y)}" x2="${p.left + 10}" y2="${round(y)}"/><text x="${p.left - 10}" y="${round(y + 6)}" text-anchor="end" stroke="none">${escapeXml(PlotMath.formatTick(tick))}</text></g>`);
-      });
+      appendYTicks(parts, yTicks, model.ranges.y, state, plot);
     }
     parts.push(`</g>`);
     return parts.join("\n");
   }
 
+  function appendYTicks(parts, ticks, range, state, plot) {
+    if (state.axes.minorTicks) {
+      ticks.minor.forEach((tick) => {
+        const y = PlotCore.scaleValue(tick, range, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
+        parts.push(`<line x1="${plot.left}" y1="${round(y)}" x2="${plot.left + 5}" y2="${round(y)}" stroke="#444"/>`);
+      });
+    }
+    ticks.major.forEach((tick) => {
+      const y = PlotCore.scaleValue(tick, range, plot.bottom, plot.top, state.axes.yLog, state.axes.yReverse);
+      parts.push(`<g><line x1="${plot.left}" y1="${round(y)}" x2="${plot.left + 10}" y2="${round(y)}"/><text x="${plot.left - 10}" y="${round(y + 6)}" text-anchor="end" stroke="none">${escapeXml(PlotCore.formatTick(tick))}</text></g>`);
+    });
+  }
+
   function axisTitleSvg(state, metrics) {
-    const p = metrics.plot;
-    return `<g id="axis-titles" font-family="Calibri,FangSong" font-size="30" font-weight="700" fill="#111827">
-      <text x="${(p.left + p.right) / 2}" y="${metrics.height - 32}" text-anchor="middle">${escapeXml(state.xTitle || state.xColumn || "X")}</text>
-      <text x="38" y="${(p.top + p.bottom) / 2}" text-anchor="middle" transform="rotate(-90 38 ${(p.top + p.bottom) / 2})">${escapeXml(state.yTitle || state.yColumn || "Y")}</text>
-    </g>`;
+    const xTitle = PlotCore.displayText(state.xTitle);
+    const yTitle = PlotCore.displayText(state.yTitle);
+    const parts = [`<g id="axis-titles" font-family="Calibri,FangSong" font-size="30" font-weight="700" fill="#111827">`];
+    if (xTitle) parts.push(`<text x="${(metrics.plot.left + metrics.plot.right) / 2}" y="${metrics.height - 24}" text-anchor="middle">${escapeXml(xTitle)}</text>`);
+    if (yTitle) parts.push(`<text x="38" y="${(metrics.plot.top + metrics.plot.bottom) / 2}" text-anchor="middle" transform="rotate(-90 38 ${(metrics.plot.top + metrics.plot.bottom) / 2})">${escapeXml(yTitle)}</text>`);
+    parts.push(`</g>`);
+    return parts.join("\n");
   }
 
   function fileBase(state) {
-    return sanitize(`${state.xTitle || state.xColumn || "元素"} vs ${state.yTitle || state.yColumn || "含量"}`);
+    const title = PlotCore.displayText(state.title);
+    if (title) return sanitize(title);
+    if (state.plotType === "line") return "元素配分折线图";
+    return sanitize(`${state.xColumn || "X"} vs ${state.yColumn || "Y"}`);
   }
 
   function sanitize(name) {
-    return name.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+    return String(name).replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
   }
 
   function escapeId(value) {
@@ -191,10 +230,10 @@
   function downloadBlob(content, name, type) {
     const blob = content instanceof Blob ? content : new Blob([content], { type });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 

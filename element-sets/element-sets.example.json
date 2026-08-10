@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "element-sets",
+  "name": "Element sets example",
+  "sets": {
+    "Rare Earth Elements": [
+      "La",
+      "Ce",
+      "Pr",
+      "Nd",
+      "Sm",
+      "Eu",
+      "Gd",
+      "Tb",
+      "Dy",
+      "Ho",
+      "Er",
+      "Tm",
+      "Yb",
+      "Lu"
+    ],
+    "High Field Strength Elements": [
+      "Zr",
+      "Hf",
+      "Nb",
+      "Ta",
+      "Th",
+      "U"
+    ]
+  }
+}

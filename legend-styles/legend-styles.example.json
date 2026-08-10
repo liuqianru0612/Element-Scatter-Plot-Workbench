@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "Legend styles example",
+  "styles": {
+    "High-Ti": {
+      "fill": "#d95f02",
+      "stroke": "#ffffff",
+      "shape": "circle",
+      "lineType": "solid",
+      "lineWidth": 2,
+      "opacity": 0.88
+    },
+    "Low-Ti": {
+      "fill": "#0072b2",
+      "stroke": "#ffffff",
+      "shape": "square",
+      "lineType": "dash",
+      "lineWidth": 2,
+      "opacity": 0.88
+    }
+  }
+}

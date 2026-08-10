@@ -1,12 +1,8 @@
 (function () {
   const els = {};
-  const swatchColors = [
-    "#d95f02", "#e69f00", "#f0b400", "#b8b8b8", "#6f6f6f",
-    "#0072b2", "#56b4e9", "#009e73", "#2a9d8f", "#7b2cbf",
-    "#cc79a7", "#ef476f", "#ffffff", "#111827", "#000000"
-  ];
   const styleStoreKey = "elementWorkbenchNew.legendStyles.v1";
   const elementSetStoreKey = "elementWorkbenchNew.elementSets.v1";
+  let pendingRenderFrame = 0;
   const state = {
     dataset: null,
     fileName: "",
@@ -32,6 +28,7 @@
     showSdBand: true,
     legendVisible: true,
     legendScale: 1,
+    legendPosition: { x: null, y: null },
     markerSize: 22,
     trendlines: {
       visible: false,
@@ -133,7 +130,6 @@
     ["xSelect", "ySelect"].forEach((id) => els[id].addEventListener("change", () => {
       state.xColumn = els.xSelect.value;
       state.yColumn = els.ySelect.value;
-      syncDefaultTitles();
       renderPlot();
     }));
     els.categoryField.addEventListener("change", () => {
@@ -193,6 +189,7 @@
     ["lineMode", "lineGroupField"].forEach((id) => els[id].addEventListener("change", () => {
       state.lineMode = els.lineMode.value;
       state.lineGroupField = els.lineGroupField.value;
+      updateLineControls();
       renderPlot();
     }));
     ["showLinePoints", "showSdBand", "legendVisible"].forEach((id) => els[id].addEventListener("change", () => {
@@ -220,6 +217,9 @@
     els.saveElementSetButton.addEventListener("click", saveElementSet);
     els.loadElementSetButton.addEventListener("click", loadElementSet);
     els.deleteElementSetButton.addEventListener("click", deleteElementSet);
+    els.importElementSetsButton.addEventListener("click", () => els.elementSetImportInput.click());
+    els.elementSetImportInput.addEventListener("change", importElementSetsFile);
+    els.exportElementSetsButton.addEventListener("click", exportElementSets);
     els.reePreset.addEventListener("click", () => applyElementPreset(["La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"]));
     els.normalizedPreset.addEventListener("click", () => applyElementPreset(state.dataset ? state.dataset.numericColumns.filter((c) => /_N$/i.test(c)) : []));
     els.applyAxisButton.addEventListener("click", applyAxis);
@@ -230,9 +230,14 @@
       });
     });
     els.trendlineCategoryList.addEventListener("change", onTrendlineCategoryChange);
-    els.trendlineCategoryList.addEventListener("input", onTrendlineCategoryChange);
-    els.exportPngButton.addEventListener("click", () => ExportSvg.downloadPng(composedCanvas(), state));
-    els.exportSvgButton.addEventListener("click", () => ExportSvg.downloadSvg(state, metrics()));
+    els.exportPngButton.addEventListener("click", () => {
+      flushPendingRender();
+      ExportSvg.downloadPng(composedCanvas(), state);
+    });
+    els.exportSvgButton.addEventListener("click", () => {
+      flushPendingRender();
+      ExportSvg.downloadSvg(state, metrics());
+    });
     els.saveHistoryButton.addEventListener("click", saveCurrentHistory);
     els.plotCanvas.addEventListener("mousemove", onCanvasMove);
     els.plotCanvas.addEventListener("mouseleave", () => els.tooltip.classList.add("hidden"));
@@ -257,22 +262,24 @@
       state.sampleSetMode = "field";
       state.derivedColumns = [];
       state.elementSets = loadElementSets();
+      state.title = "";
+      state.xTitle = "";
+      state.yTitle = "";
+      state.legendPosition = { x: null, y: null };
     }
     renderDataPreview();
-    renderSelects();
     if (resetSelections || !state.xColumn) {
       state.xColumn = state.dataset.numericColumns[0] || state.dataset.columns[0] || "";
       state.yColumn = state.dataset.numericColumns[1] || state.dataset.numericColumns[0] || "";
       state.selectedElements = state.dataset.numericColumns.slice(0, 8);
       state.categoryField = DataModule.categoryFields(state.dataset, state.sampleSets)[0] || "";
+      state.lineGroupField = state.categoryField;
       state.selectedCategories = new Set(getCategories());
-      syncDefaultTitles();
     }
+    writeAxisControls();
     renderSelects();
-    renderDerivedColumnList();
     renderCategoryItems();
     renderLegendRows();
-    renderTrendlineCategoryList();
     renderPlot();
   }
 
@@ -299,11 +306,12 @@
     const d = state.dataset;
     const columns = d ? d.columns : [];
     const nums = d ? d.numericColumns : [];
+    if (!columns.includes(state.lineGroupField)) state.lineGroupField = state.categoryField || columns[0] || "";
     fillSelect(els.xSelect, nums, state.xColumn);
     fillSelect(els.ySelect, nums, state.yColumn);
     fillSelect(els.numeratorSelect, nums, nums[0]);
     fillSelect(els.denominatorSelect, nums, nums[1] || nums[0]);
-    fillSelect(els.lineGroupField, columns, state.lineGroupField || state.categoryField);
+    fillSelect(els.lineGroupField, columns, state.lineGroupField);
     fillSelect(els.categoryField, DataModule.categoryFields(d, state.sampleSets), state.categoryField);
     fillSelect(els.elementSetSelect, Object.keys(state.elementSets), els.elementSetSelect.value);
     if (els.sampleSetMode) els.sampleSetMode.value = state.sampleSetMode;
@@ -370,8 +378,12 @@
   }
 
   function renderLegendRows() {
-    const categories = getVisibleCategories();
+    const categories = getPlotCategories();
+    state.visibleCategories = categories;
     LegendStyle.ensureStyles(state, categories);
+    if (state.selectedLegendCategory && !categories.includes(state.selectedLegendCategory)) {
+      state.selectedLegendCategory = "";
+    }
     els.legendRows.innerHTML = categories.map((category) => {
       const style = state.styles[category];
       const active = category === state.selectedLegendCategory ? "is-active" : "";
@@ -380,7 +392,6 @@
     els.legendRows.querySelectorAll(".legend-row").forEach((row) => row.addEventListener("click", () => {
       state.selectedLegendCategory = row.dataset.category;
       renderLegendRows();
-      renderLegendEditor();
     }));
     renderLegendEditor();
     renderTrendlineCategoryList();
@@ -398,15 +409,22 @@
       const config = trendlineCategoryConfig(category);
       const style = state.styles[category] || LegendStyle.defaultStyle(category, 0);
       const color = config.color || style.fill;
+      const inheritsColor = !config.color;
       return `<div class="trendline-row" data-category="${escapeHtml(category)}">
-        <label class="trendline-name"><input type="checkbox" data-trend-field="enabled" ${config.enabled ? "checked" : ""}> <span>${escapeHtml(category)}</span></label>
-        <select data-trend-field="lineType" title="线型">
-          <option value="inherit" ${config.lineType === "inherit" ? "selected" : ""}>继承</option>
-          ${LegendStyle.lineTypes.map((type) => option(type, lineLabel(type), config.lineType === type)).join("")}
-        </select>
-        <input data-trend-field="color" type="text" value="${escapeHtml(color)}" title="颜色 HEX" spellcheck="false">
-        <input data-trend-field="width" type="number" min="0.5" max="8" step="0.5" value="${escapeHtml(config.width || "")}" placeholder="线宽" title="线宽">
-        <input data-trend-field="opacity" type="number" min="0.05" max="1" step="0.05" value="${escapeHtml(config.opacity || "")}" placeholder="透明度" title="透明度">
+        <label class="trendline-row-head"><input type="checkbox" data-trend-field="enabled" ${config.enabled ? "checked" : ""}> <span>${escapeHtml(category)}</span></label>
+        <div class="trendline-options">
+          <div class="field"><label>线型</label><select data-trend-field="lineType">
+            <option value="inherit" ${config.lineType === "inherit" ? "selected" : ""}>继承图例</option>
+            ${LegendStyle.lineTypes.map((type) => option(type, lineLabel(type), config.lineType === type)).join("")}
+          </select></div>
+          <div class="field"><label>颜色</label><div class="trend-color-control">
+            <input data-trend-field="colorPicker" type="color" value="${escapeHtml(color)}" ${inheritsColor ? "disabled" : ""} title="趋势线颜色">
+            <input data-trend-field="colorHex" type="text" value="${escapeHtml(color)}" ${inheritsColor ? "disabled" : ""} spellcheck="false">
+            <label class="inherit-color"><input type="checkbox" data-trend-field="inheritColor" ${inheritsColor ? "checked" : ""}> 继承图例颜色</label>
+          </div></div>
+          <div class="field"><label>线宽（空为默认）</label><input data-trend-field="width" type="number" min="0.5" max="8" step="0.5" value="${escapeHtml(config.width || "")}" placeholder="默认"></div>
+          <div class="field"><label>透明度（空为默认）</label><input data-trend-field="opacity" type="number" min="0.05" max="1" step="0.05" value="${escapeHtml(config.opacity || "")}" placeholder="默认"></div>
+        </div>
       </div>`;
     }).join("");
   }
@@ -423,70 +441,68 @@
     els.legendEditor.innerHTML = `
       <strong>${escapeHtml(category)}</strong>
       <div class="editor-grid">
-        <div class="field"><label>填充色 HEX</label><input id="draftFill" type="text" value="${escapeHtml(style.fill)}" inputmode="text" spellcheck="false"></div>
-        <div class="field"><label>边框色 HEX</label><input id="draftStroke" type="text" value="${escapeHtml(style.stroke)}" inputmode="text" spellcheck="false"></div>
+        <div class="field"><label>填充色</label><div class="color-control"><input id="draftFillPicker" type="color" value="${escapeHtml(style.fill)}"><input id="draftFill" type="text" value="${escapeHtml(style.fill)}" spellcheck="false"></div></div>
+        <div class="field"><label>边框色</label><div class="color-control"><input id="draftStrokePicker" type="color" value="${escapeHtml(style.stroke)}"><input id="draftStroke" type="text" value="${escapeHtml(style.stroke)}" spellcheck="false"></div></div>
         <div class="field"><label>点形状</label><select id="draftShape">${LegendStyle.shapes.map((s) => option(s, shapeLabel(s), s === style.shape)).join("")}</select></div>
         <div class="field"><label>线型</label><select id="draftLineType">${LegendStyle.lineTypes.map((s) => option(s, lineLabel(s), s === style.lineType)).join("")}</select></div>
         <div class="field"><label>线宽</label><input id="draftLineWidth" type="number" min="0.5" max="12" step="0.5" value="${style.lineWidth}"></div>
         <div class="field"><label>透明度</label><input id="draftOpacity" type="number" min="0.05" max="1" step="0.05" value="${style.opacity}"></div>
       </div>
-      <div class="swatch-section">
-        <div class="swatch-label">预设色板：先点色板，再选填充色或边框色</div>
-        <div class="color-swatches">
-          ${swatchColors.map((color) => `<button type="button" class="color-swatch" data-color="${color}" style="background:${color}" title="${color}"></button>`).join("")}
-        </div>
-        <div class="toolbar compact">
-          <button type="button" id="useSwatchFill">设为填充色</button>
-          <button type="button" id="useSwatchStroke">设为边框色</button>
-          <span id="selectedSwatch" class="selected-swatch" style="background:${style.fill}"></span>
-        </div>
-      </div>
+      <div class="legend-draft-preview"><span id="draftMarkerPreview"></span><span>样式预览（应用前不会重绘整张图）</span></div>
       <button id="applyStyleButton" class="primary" type="button">应用样式</button>
     `;
-    let selectedColor = normalizeColor(style.fill, style.fill);
-    document.getElementById("useSwatchFill").addEventListener("click", () => {
-      document.getElementById("draftFill").value = selectedColor;
-    });
-    document.getElementById("useSwatchStroke").addEventListener("click", () => {
-      document.getElementById("draftStroke").value = selectedColor;
-    });
-    els.legendEditor.querySelectorAll(".color-swatch").forEach((button) => {
-      button.addEventListener("click", () => {
-        selectedColor = button.dataset.color;
-        document.getElementById("selectedSwatch").style.background = selectedColor;
-      });
-    });
-    document.getElementById("applyStyleButton").addEventListener("click", () => {
-      const fill = normalizeColor(document.getElementById("draftFill").value, state.styles[category].fill);
-      const stroke = normalizeColor(document.getElementById("draftStroke").value, state.styles[category].stroke);
-      document.getElementById("draftFill").value = fill;
-      document.getElementById("draftStroke").value = stroke;
+    const controls = Object.fromEntries([...els.legendEditor.querySelectorAll("[id]")].map((control) => [control.id, control]));
+    const updateDraftPreview = () => {
+      const draftStyle = readDraftLegendStyle(controls, style);
+      controls.draftMarkerPreview.innerHTML = markerIconSvg(draftStyle, 24);
+    };
+    bindDraftColorPair(controls.draftFillPicker, controls.draftFill, updateDraftPreview);
+    bindDraftColorPair(controls.draftStrokePicker, controls.draftStroke, updateDraftPreview);
+    [controls.draftShape, controls.draftLineType, controls.draftLineWidth, controls.draftOpacity]
+      .forEach((control) => control.addEventListener("input", updateDraftPreview));
+    updateDraftPreview();
+    controls.applyStyleButton.addEventListener("click", () => {
+      const nextStyle = readDraftLegendStyle(controls, state.styles[category]);
+      controls.draftFill.value = nextStyle.fill;
+      controls.draftStroke.value = nextStyle.stroke;
+      controls.draftFillPicker.value = nextStyle.fill;
+      controls.draftStrokePicker.value = nextStyle.stroke;
       state.styles[category] = {
-        fill,
-        stroke,
-        shape: document.getElementById("draftShape").value,
-        lineType: document.getElementById("draftLineType").value,
-        lineWidth: Number(document.getElementById("draftLineWidth").value),
-        opacity: Number(document.getElementById("draftOpacity").value)
+        ...nextStyle
       };
       saveStyles();
       updateLegendRow(category);
+      syncInheritedTrendColor(category);
       renderPlot();
     });
   }
 
   function renderPlot() {
+    if (pendingRenderFrame) return;
+    pendingRenderFrame = requestAnimationFrame(renderPlotNow);
+  }
+
+  function flushPendingRender() {
+    if (pendingRenderFrame) cancelAnimationFrame(pendingRenderFrame);
+    pendingRenderFrame = 0;
+    renderPlotNow();
+  }
+
+  function renderPlotNow() {
+    pendingRenderFrame = 0;
     resizeCanvas();
-    applyAxis(false);
     updateLineControls();
     state.filteredRows = filterRows();
-    state.visibleCategories = getVisibleCategories();
+    const nextCategories = getPlotCategories(state.filteredRows);
+    const categoriesChanged = nextCategories.join("\u0000") !== state.visibleCategories.join("\u0000");
+    state.visibleCategories = nextCategories;
     LegendStyle.ensureStyles(state, state.visibleCategories);
     const result = state.plotType === "line"
       ? LinePlot.draw(els.ctx, state, metrics())
       : ScatterPlot.draw(els.ctx, state, metrics());
     state.hoverPoints = result.points || [];
     state.lastModel = result.model || null;
+    if (categoriesChanged) renderLegendRows();
     renderHtmlLegend();
   }
 
@@ -495,9 +511,13 @@
       els.htmlLegend.style.display = "none";
       return;
     }
+    const layout = metrics();
     els.htmlLegend.style.display = "block";
+    els.htmlLegend.style.left = `${layout.legend.x}px`;
+    els.htmlLegend.style.top = `${layout.legend.y}px`;
+    els.htmlLegend.style.right = "auto";
     els.htmlLegend.style.transform = `scale(${state.legendScale})`;
-    els.htmlLegend.style.transformOrigin = "top right";
+    els.htmlLegend.style.transformOrigin = "top left";
     els.htmlLegend.innerHTML = state.visibleCategories.map((category, index) => {
       const style = state.styles[category] || LegendStyle.defaultStyle(category, index);
       return `<div class="legend-item"><span class="legend-swatch">${markerIconSvg(style, 18)}</span><span>${escapeHtml(category)}</span></div>`;
@@ -511,29 +531,31 @@
   }
 
   function applyAxis(readInputs = true) {
-    if (readInputs) {
-      ["xMin", "xMax", "xStep", "yMin", "yMax", "yStep"].forEach((id) => { state.axes[id] = els[id].value; });
-      state.axes.xLog = els.xLog.checked;
-      state.axes.yLog = els.yLog.checked;
-      state.axes.xReverse = els.xReverse.checked;
-      state.axes.yReverse = els.yReverse.checked;
-      state.axes.minorTicks = els.minorTicks.checked;
-      state.title = els.chartTitle.value;
-      state.xTitle = els.xTitle.value;
-      state.yTitle = els.yTitle.value;
-      readTrendlineControls();
-      renderPlot();
-    } else {
-      els.chartTitle.value = state.title;
-      els.xTitle.value = state.xTitle;
-      els.yTitle.value = state.yTitle;
-      els.xReverse.checked = state.axes.xReverse;
-      els.yReverse.checked = state.axes.yReverse;
-      els.xLog.checked = state.axes.xLog;
-      els.yLog.checked = state.axes.yLog;
-      els.minorTicks.checked = state.axes.minorTicks;
-      writeTrendlineControls();
-    }
+    if (!readInputs) return writeAxisControls();
+    ["xMin", "xMax", "xStep", "yMin", "yMax", "yStep"].forEach((id) => { state.axes[id] = els[id].value; });
+    state.axes.xLog = els.xLog.checked;
+    state.axes.yLog = els.yLog.checked;
+    state.axes.xReverse = els.xReverse.checked;
+    state.axes.yReverse = els.yReverse.checked;
+    state.axes.minorTicks = els.minorTicks.checked;
+    state.title = els.chartTitle.value;
+    state.xTitle = els.xTitle.value;
+    state.yTitle = els.yTitle.value;
+    readTrendlineControls();
+    renderPlot();
+  }
+
+  function writeAxisControls() {
+    ["xMin", "xMax", "xStep", "yMin", "yMax", "yStep"].forEach((id) => { els[id].value = state.axes[id]; });
+    els.chartTitle.value = state.title;
+    els.xTitle.value = state.xTitle;
+    els.yTitle.value = state.yTitle;
+    els.xReverse.checked = state.axes.xReverse;
+    els.yReverse.checked = state.axes.yReverse;
+    els.xLog.checked = state.axes.xLog;
+    els.yLog.checked = state.axes.yLog;
+    els.minorTicks.checked = state.axes.minorTicks;
+    writeTrendlineControls();
   }
 
   function readTrendlineControls() {
@@ -556,9 +578,33 @@
     const category = row.dataset.category;
     const config = trendlineCategoryConfig(category);
     const field = event.target.dataset.trendField;
+    const style = state.styles[category] || LegendStyle.defaultStyle(category, 0);
     if (field === "enabled") config.enabled = event.target.checked;
     if (field === "lineType") config.lineType = event.target.value;
-    if (field === "color") config.color = normalizeOptionalColor(event.target.value, config.color || "");
+    if (field === "inheritColor") {
+      const picker = row.querySelector("[data-trend-field='colorPicker']");
+      const hex = row.querySelector("[data-trend-field='colorHex']");
+      if (event.target.checked) {
+        config.color = "";
+        picker.value = style.fill;
+        hex.value = style.fill;
+        picker.disabled = true;
+        hex.disabled = true;
+      } else {
+        config.color = picker.value || style.fill;
+        picker.disabled = false;
+        hex.disabled = false;
+      }
+    }
+    if (field === "colorPicker") {
+      config.color = normalizeColor(event.target.value, style.fill);
+      row.querySelector("[data-trend-field='colorHex']").value = config.color;
+    }
+    if (field === "colorHex") {
+      config.color = normalizeColor(event.target.value, config.color || style.fill);
+      event.target.value = config.color;
+      row.querySelector("[data-trend-field='colorPicker']").value = config.color;
+    }
     if (field === "width") {
       const value = Number(event.target.value);
       config.width = Number.isFinite(value) && value > 0 ? clamp(value, 0.5, 8) : "";
@@ -588,19 +634,12 @@
     return state.trendlines.categories[category];
   }
 
-  function syncDefaultTitles() {
-    state.xTitle = state.xColumn || "";
-    state.yTitle = state.yColumn || "";
-    state.title = state.xColumn && state.yColumn ? `${state.xColumn} vs ${state.yColumn}` : "";
-  }
-
   function updateLineControls() {
     const line = state.plotType === "line";
     els.scatterControls.classList.toggle("hidden", line);
     els.lineControls.classList.toggle("hidden", !line);
-    state.lineMode = els.lineMode.value;
-    state.showLinePoints = els.showLinePoints.checked;
-    state.showSdBand = els.showSdBand.checked;
+    els.trendlineControls.classList.toggle("hidden", line);
+    els.lineGroupField.disabled = state.lineMode !== "field";
   }
 
   function getCategories() {
@@ -612,6 +651,15 @@
 
   function getVisibleCategories() {
     return getCategories().filter((category) => state.selectedCategories.has(category));
+  }
+
+  function getPlotCategories(rows = filterRows()) {
+    if (!state.dataset) return [];
+    if (state.plotType === "line" && state.lineMode === "field") {
+      const values = rows.map((row) => DataModule.categoryValue(row, state.lineGroupField, state.sampleSets, state.sampleSetMode));
+      return [...new Set(values)].sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
+    }
+    return getVisibleCategories();
   }
 
   function filterRows() {
@@ -640,7 +688,6 @@
       if (!state.elementSets[setName].length) delete state.elementSets[setName];
     });
     saveElementSets();
-    syncDefaultTitles();
     renderDataPreview();
     renderSelects();
     state.selectedCategories = new Set(getCategories());
@@ -681,6 +728,10 @@
   function saveElementSet() {
     const name = els.elementSetName.value.trim();
     if (!name || !state.selectedElements.length) return;
+    if (isReservedElementSetName(name)) {
+      setStatus("该元素组合名称不能使用，请更换名称");
+      return;
+    }
     state.elementSets[name] = [...state.selectedElements];
     saveElementSets();
     fillSelect(els.elementSetSelect, Object.keys(state.elementSets), name);
@@ -707,10 +758,77 @@
     setStatus(`已删除元素组合：${name}`);
   }
 
+  async function importElementSetsFile(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const config = JSON.parse(await file.text());
+      const importedSets = normalizeElementSetsConfig(config);
+      let replaced = 0;
+      Object.entries(importedSets).forEach(([name, elements]) => {
+        if (Object.prototype.hasOwnProperty.call(state.elementSets, name)) replaced += 1;
+        state.elementSets[name] = elements;
+      });
+      saveElementSets();
+      const names = Object.keys(state.elementSets);
+      const firstImported = Object.keys(importedSets)[0] || "";
+      fillSelect(els.elementSetSelect, names, firstImported);
+      els.elementSetImportStatus.textContent = `已导入 ${Object.keys(importedSets).length} 个组合${replaced ? `，更新 ${replaced} 个同名组合` : ""}`;
+    } catch (error) {
+      els.elementSetImportStatus.textContent = `导入失败：${error.message}`;
+    }
+  }
+
+  function exportElementSets() {
+    const sets = Object.fromEntries(Object.entries(state.elementSets).map(([name, elements]) => [name, [...elements]]));
+    if (!Object.keys(sets).length) {
+      els.elementSetImportStatus.textContent = "尚未保存可导出的元素组合";
+      return;
+    }
+    const config = {
+      version: 1,
+      type: "element-sets",
+      name: "Element Plot Workbench element sets",
+      exportedAt: new Date().toISOString(),
+      sets
+    };
+    downloadJson(config, "element-sets.json");
+    els.elementSetImportStatus.textContent = `已导出 ${Object.keys(sets).length} 个元素组合`;
+  }
+
+  function normalizeElementSetsConfig(config) {
+    if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("JSON 格式不正确");
+    if (config.type && config.type !== "element-sets") throw new Error("这不是元素组合配置文件");
+    let source = config.sets;
+    if (!source && typeof config.name === "string" && Array.isArray(config.elements)) {
+      source = { [config.name]: config.elements };
+    }
+    if (!source || typeof source !== "object" || Array.isArray(source)) throw new Error("缺少 sets 元素组合对象");
+
+    const sets = {};
+    Object.entries(source).forEach(([rawName, rawElements]) => {
+      const name = String(rawName || "").trim().slice(0, 120);
+      if (!name || isReservedElementSetName(name) || !Array.isArray(rawElements)) return;
+      const elements = [...new Set(rawElements
+        .map((element) => String(element ?? "").trim())
+        .filter(Boolean))];
+      if (elements.length) sets[name] = elements;
+    });
+    if (!Object.keys(sets).length) throw new Error("没有找到有效的元素组合");
+    return sets;
+  }
+
+  function isReservedElementSetName(name) {
+    return ["__proto__", "constructor", "prototype"].includes(String(name).toLowerCase());
+  }
+
   function onCanvasMove(event) {
     const rect = els.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const scaleX = state.canvasCssWidth / Math.max(rect.width, 1);
+    const scaleY = state.canvasCssHeight / Math.max(rect.height, 1);
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
     let best = null;
     let bestD = Infinity;
     for (const point of state.hoverPoints) {
@@ -741,21 +859,27 @@
 
   function saveCurrentHistory() {
     if (!state.dataset) return;
-    const snapshot = composedCanvas().toDataURL("image/png", 0.82);
+    flushPendingRender();
+    const historyImage = historySnapshotCanvas();
+    const snapshot = historyImage.canvas.toDataURL("image/jpeg", 0.86);
     const entry = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: state.title || `${state.xTitle} vs ${state.yTitle}`,
+      name: PlotCore.displayText(state.title) || (state.plotType === "line" ? "未命名元素配分折线图" : "未命名散点图"),
       time: new Date().toLocaleString(),
       image: snapshot,
-      imageWidth: els.canvas.width,
-      imageHeight: els.canvas.height,
-      hoverPoints: historyHoverPoints(),
+      imageWidth: historyImage.canvas.width,
+      imageHeight: historyImage.canvas.height,
+      hoverPoints: historyHoverPoints(historyImage.scale),
       config: lightweightConfig()
     };
-    HistoryStore.add(entry);
-    state.selectedHistoryId = entry.id;
-    renderHistory();
-    setStatus("已保存当前图件到历史记录");
+    try {
+      const result = HistoryStore.add(entry);
+      state.selectedHistoryId = entry.id;
+      renderHistory();
+      setStatus(result.removed > 0 ? `已保存历史图件，并清理 ${result.removed} 条较早记录` : "已保存当前图件到历史记录");
+    } catch (error) {
+      setStatus(`历史记录保存失败：${error.message}`);
+    }
   }
 
   function loadHistory() {
@@ -808,11 +932,19 @@
     els.htmlLegend.addEventListener("pointermove", (event) => {
       if (!dragging) return;
       const shell = els.plotShell.getBoundingClientRect();
-      els.htmlLegend.style.left = `${event.clientX - shell.left - offset.x}px`;
-      els.htmlLegend.style.top = `${event.clientY - shell.top - offset.y}px`;
+      const legend = els.htmlLegend.getBoundingClientRect();
+      const x = clamp(event.clientX - shell.left - offset.x, 0, Math.max(0, shell.width - legend.width));
+      const y = clamp(event.clientY - shell.top - offset.y, 0, Math.max(0, shell.height - legend.height));
+      els.htmlLegend.style.left = `${x}px`;
+      els.htmlLegend.style.top = `${y}px`;
       els.htmlLegend.style.right = "auto";
+      state.legendPosition = {
+        x: shell.width ? x / shell.width : null,
+        y: shell.height ? y / shell.height : null
+      };
     });
     els.htmlLegend.addEventListener("pointerup", () => { dragging = false; });
+    els.htmlLegend.addEventListener("pointercancel", () => { dragging = false; });
   }
 
   function bindResizers() {
@@ -839,9 +971,9 @@
 
   function resizeCanvas() {
     const rect = els.plotShell.getBoundingClientRect();
-    const cssWidth = Math.max(900, Math.round(rect.width || 1200));
-    const cssHeight = Math.round(cssWidth * 0.75);
-    const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    const cssWidth = Math.max(320, Math.round(rect.width || 1200));
+    const cssHeight = Math.max(240, Math.round(rect.height || cssWidth * 0.75));
+    const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
     const width = Math.round(cssWidth * dpr);
     const height = Math.round(cssHeight * dpr);
     state.canvasDpr = dpr;
@@ -857,16 +989,7 @@
   function metrics() {
     const w = state.canvasCssWidth;
     const h = state.canvasCssHeight;
-    return {
-      width: w,
-      height: h,
-      plot: {
-        left: Math.round(w * 0.13),
-        right: Math.round(w * 0.78),
-        top: Math.round(h * 0.12),
-        bottom: Math.round(h * 0.82)
-      }
-    };
+    return PlotCore.createMetrics(state, w, h, els.ctx);
   }
 
   function lightweightConfig() {
@@ -874,22 +997,30 @@
       plotType: state.plotType,
       xColumn: state.xColumn,
       yColumn: state.yColumn,
+      title: state.title,
+      xTitle: state.xTitle,
+      yTitle: state.yTitle,
       selectedElements: state.selectedElements,
+      lineMode: state.lineMode,
+      lineGroupField: state.lineGroupField,
       categoryField: state.categoryField,
       sampleSetMode: state.sampleSetMode,
       derivedColumns: state.derivedColumns,
       axes: state.axes,
       trendlines: state.trendlines,
+      legendVisible: state.legendVisible,
+      legendScale: state.legendScale,
+      legendPosition: state.legendPosition,
       styles: state.styles
     };
   }
 
-  function historyHoverPoints() {
+  function historyHoverPoints(snapshotScale = 1) {
     const dpr = state.canvasDpr || 1;
     return state.hoverPoints.slice(0, 5000).map((point) => ({
-      x: Math.round(point.x * dpr),
-      y: Math.round(point.y * dpr),
-      radius: Math.max(8, Math.round((point.radius || state.markerSize) * dpr)),
+      x: Math.round(point.x * dpr * snapshotScale),
+      y: Math.round(point.y * dpr * snapshotScale),
+      radius: Math.max(8, Math.round((point.radius || state.markerSize) * dpr * snapshotScale)),
       tooltip: tooltipHtml(point)
     }));
   }
@@ -932,30 +1063,43 @@
     if (state.legendVisible) {
       ctx.save();
       ctx.scale(state.canvasDpr, state.canvasDpr);
-      drawLegendOnCanvas(ctx, state.canvasCssWidth);
+      drawLegendOnCanvas(ctx, metrics());
       ctx.restore();
     }
     return out;
   }
 
-  function drawLegendOnCanvas(ctx, width) {
+  function historySnapshotCanvas() {
+    const source = composedCanvas();
+    const scale = Math.min(1, 1200 / source.width, 900 / source.height);
+    if (scale === 1) return { canvas: source, scale };
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    return { canvas, scale };
+  }
+
+  function drawLegendOnCanvas(ctx, layout) {
     const categories = state.visibleCategories;
     if (!categories.length) return;
     const scale = state.legendScale || 1;
-    const x = Math.round(width * 0.79);
-    const y0 = Math.round(width * 0.08);
     ctx.save();
+    ctx.translate(layout.legend.x, layout.legend.y);
     ctx.scale(scale, scale);
     categories.forEach((category, index) => {
-      const y = y0 / scale + index * 25;
+      const y = index * 25;
       const style = state.styles[category] || LegendStyle.defaultStyle(category, index);
-      LegendStyle.drawMarker(ctx, x / scale + 8, y + 8, Math.max(12, state.markerSize * 0.7), style);
+      LegendStyle.drawMarker(ctx, 8, y + 8, Math.max(12, state.markerSize * 0.7), style);
       ctx.fillStyle = "#111827";
       ctx.globalAlpha = 1;
       ctx.font = "18px Calibri, FangSong";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(category, x / scale + 24, y + 8);
+      ctx.fillText(category, 24, y + 8);
     });
     ctx.restore();
   }
@@ -972,6 +1116,16 @@
     return `<option value="${escapeHtml(value)}" ${selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
   }
 
+  function downloadJson(config, fileName) {
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   }
@@ -983,6 +1137,42 @@
   function markerIconSvg(style, size) {
     const center = size / 2;
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${LegendStyle.markerSvg(center, center, Math.max(10, size - 4), style)}</svg>`;
+  }
+
+  function readDraftLegendStyle(controls, fallback) {
+    return {
+      fill: normalizeColor(controls.draftFill.value, fallback.fill),
+      stroke: normalizeColor(controls.draftStroke.value, fallback.stroke),
+      shape: LegendStyle.shapes.includes(controls.draftShape.value) ? controls.draftShape.value : fallback.shape,
+      lineType: LegendStyle.lineTypes.includes(controls.draftLineType.value) ? controls.draftLineType.value : fallback.lineType,
+      lineWidth: clamp(Number(controls.draftLineWidth.value) || fallback.lineWidth || 2, 0.5, 12),
+      opacity: clamp(Number(controls.draftOpacity.value) || fallback.opacity || 1, 0.05, 1)
+    };
+  }
+
+  function bindDraftColorPair(picker, textInput, updatePreview) {
+    picker.addEventListener("input", () => {
+      textInput.value = picker.value;
+      updatePreview();
+    });
+    textInput.addEventListener("input", () => {
+      const normalized = normalizedColorOrNull(textInput.value);
+      if (normalized) picker.value = normalized;
+      updatePreview();
+    });
+  }
+
+  function syncInheritedTrendColor(category) {
+    const row = [...els.trendlineCategoryList.querySelectorAll(".trendline-row")]
+      .find((item) => item.dataset.category === category);
+    if (!row) return;
+    const config = trendlineCategoryConfig(category);
+    if (config.color) return;
+    const color = state.styles[category]?.fill || LegendStyle.defaultStyle(category, 0).fill;
+    const picker = row.querySelector("[data-trend-field='colorPicker']");
+    const hex = row.querySelector("[data-trend-field='colorHex']");
+    if (picker) picker.value = color;
+    if (hex) hex.value = color;
   }
 
   function normalizeColor(value, fallback) {
@@ -998,9 +1188,8 @@
     return fallback || "#000000";
   }
 
-  function normalizeOptionalColor(value, fallback) {
+  function normalizedColorOrNull(value) {
     const text = String(value || "").trim();
-    if (!text) return "";
     if (/^#[0-9a-fA-F]{6}$/.test(text)) return text.toLowerCase();
     if (/^[0-9a-fA-F]{6}$/.test(text)) return `#${text.toLowerCase()}`;
     if (/^#[0-9a-fA-F]{3}$/.test(text)) {
@@ -1009,7 +1198,7 @@
     if (/^[0-9a-fA-F]{3}$/.test(text)) {
       return `#${text[0]}${text[0]}${text[1]}${text[1]}${text[2]}${text[2]}`.toLowerCase();
     }
-    return fallback || "";
+    return null;
   }
 
   function loadSavedStyles() {
@@ -1028,7 +1217,8 @@
   function loadElementSets() {
     try {
       const parsed = JSON.parse(localStorage.getItem(elementSetStoreKey) || "{}");
-      return parsed && typeof parsed === "object" ? parsed : {};
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Object.keys(parsed).length) return {};
+      return normalizeElementSetsConfig({ type: "element-sets", sets: parsed });
     } catch {
       return {};
     }
@@ -1069,7 +1259,7 @@
   }
 
   function exportLegendStyles() {
-    const categories = getCategories();
+    const categories = getPlotCategories();
     const styles = {};
     categories.forEach((category, index) => {
       styles[category] = state.styles[category] || LegendStyle.defaultStyle(category, index);
@@ -1080,19 +1270,13 @@
       exportedAt: new Date().toISOString(),
       styles
     };
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "legend-styles.json";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadJson(config, "legend-styles.json");
     els.legendImportStatus.textContent = "已导出当前图例设置";
   }
 
   function applyLegendConfig(config) {
     const incoming = normalizeLegendConfig(config);
-    const visible = new Set(getCategories());
+    const visible = new Set(getPlotCategories());
     let applied = 0;
     let unmatched = 0;
     Object.entries(incoming).forEach(([name, style]) => {
